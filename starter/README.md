@@ -4,6 +4,7 @@
 
 - Screeps purchased on Steam
 - Obtain from administrator:
+  - Server address
   - Username
   - Password
 
