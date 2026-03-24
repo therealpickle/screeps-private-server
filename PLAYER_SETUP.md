@@ -28,7 +28,7 @@
 
 ### 1. Create a GitHub repo
 
-Fork or clone the [screeps-starter](https://github.com/screeps/starter-kit), then clone your repo locally:
+Create a new GitHub repo for your bot code, then clone it locally:
 ```bash
 git clone https://github.com/your-username/your-repo.git
 cd your-repo
