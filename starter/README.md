@@ -31,10 +31,32 @@ Create a new GitHub repo for your bot code, then clone it locally:
 ```bash
 git clone https://github.com/your-username/your-repo.git
 cd your-repo
+```
+
+### 2. Add `screeps-api` to your project
+
+Create a `package.json` with the deploy script:
+
+```json
+{
+  "name": "my-screeps-bot",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "deploy": "screeps-api upload --server private default/*.js"
+  },
+  "devDependencies": {
+    "screeps-api": "^1.16.1"
+  }
+}
+```
+
+Then install:
+```bash
 npm install
 ```
 
-### 2. Configure deployment
+### 3. Configure deployment
 
 Create a `.screeps.yml` file in the root of your repo:
 
@@ -49,15 +71,13 @@ servers:
     branch: default
 ```
 
-> Don't commit this file — it contains your password. Add it to `.gitignore`.
+> Don't commit this file — it contains your password. Add `.screeps.yml` and `node_modules/` to `.gitignore`.
 
-### 3. Deploy your code
+### 4. Deploy your code
 
 ```bash
-npm run deploy -- --server private
+npm run deploy
 ```
-
-Check your starter's `package.json` for the exact deploy command — the script name may vary.
 
 ### 4. Verify
 
@@ -71,7 +91,7 @@ Run the deploy command whenever you want to push your latest code to the game:
 
 ```bash
 git pull
-npm run deploy -- --server private
+npm run deploy
 ```
 
 This is the simplest approach — you control exactly when your code updates.
@@ -113,7 +133,7 @@ jobs:
               branch: default
           EOF
 
-      - run: npm run deploy -- --server private
+      - run: npm run deploy
 ```
 
 Then add your credentials as GitHub Actions secrets in your repo under **Settings → Secrets and variables → Actions**:
@@ -124,7 +144,7 @@ Then add your credentials as GitHub Actions secrets in your repo under **Setting
 
 ## Running a Local Test Server
 
-Before pushing code to the shared server, you can run an identical server on your own machine. Follow the server setup in this repo's [README](README.md) to get a local instance running, then continue below.
+Before pushing code to the shared server, you can run an identical server on your own machine. Follow the server setup in this repo's [README](../README.md) to get a local instance running, then continue below.
 
 ### 1. Add a local entry to `.screeps.yml`
 

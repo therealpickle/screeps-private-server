@@ -1,0 +1,11 @@
+{
+  "name": "screeps-starter",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "deploy": "screeps-api upload --server private default/*.js"
+  },
+  "devDependencies": {
+    "screeps-api": "^1.16.1"
+  }
+}
