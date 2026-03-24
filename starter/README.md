@@ -26,9 +26,12 @@
 
 ## Setting Up a Code Repository
 
-### With the Makefile (recommended)
+I'd recommend setting up a git repo for your code and I run under the assumption
+you have somewhere. Starter files may include Github specific functionality.
 
-The starter kit includes a `Makefile` with shortcuts for common tasks.
+Additionally, I've made a few shortcuts to easy the setups using Makefiles, becuase I love them.
+
+### With the Makefile (recommended)
 
 #### 1. Copy the starter files
 
@@ -48,19 +51,23 @@ make install
 make init-screeps-yml
 ```
 
-Then open `.screeps.yml` and fill in `<SERVER_ADDRESS>`, `<USERNAME>`, and `<PASSWORD>`.
+> Don't commit this file — it contains your password! It's in .gitignore already.
 
-> Don't commit this file — it contains your password.
+Then open `.screeps.yml` and fill in `<SERVER_ADDRESS>`, `<USERNAME>`, and `<PASSWORD>`.
+Additionally, you might want to update the `private` server name to something more
+convenient/clear. You can add other servers, such as a local instance of the server setup from
+this repo, or a server started from the game. Useful for deploying to for testing.
+
 
 #### 4. Deploy
 
 ```bash
-make deploy-private
+make deploy-private # or deploy-my-cool-server-name
 ```
 
 #### 5. Verify
 
-Open the Screeps client, go to the **Script** tab, and confirm your code is there. If your spawn is placed, it will start running on the next tick.
+Open the Screeps client, go to the **Script** tab, and confirm your code is there. If your spawn is placed, it will start running on the next tick. Error messages are on the Console.
 
 ---
 
