@@ -17,8 +17,6 @@
    - **Port:** `21025`
 4. Log in with your username and password
 
-> If you don't have credentials yet, ask the server admin to run `make adduser` for you.
-
 ## First Time In
 
 1. Once logged in, you'll see the world map
@@ -28,26 +26,63 @@
 
 ## Setting Up a Code Repository
 
-### 1. Create a GitHub repo
+### With the Makefile (recommended)
 
-Create a new GitHub repo for your bot code, then clone it locally:
+The starter kit includes a `Makefile` with shortcuts for common tasks.
+
+#### 1. Create a GitHub repo (optional)
+
 ```bash
 git clone https://github.com/your-username/your-repo.git
 cd your-repo
 ```
 
-### 2. Add `screeps-api` to your project
+#### 2. Install dependencies
 
-Create a `package.json` with the deploy script:
+```bash
+make install
+```
+
+#### 3. Generate `.screeps.yml`
+
+```bash
+make init-screeps-yml
+```
+
+Then open `.screeps.yml` and fill in `<SERVER_ADDRESS>`, `<USERNAME>`, and `<PASSWORD>`.
+
+> Don't commit this file — it contains your password.
+
+#### 4. Deploy
+
+```bash
+make deploy-private
+```
+
+#### 5. Verify
+
+Open the Screeps client, go to the **Script** tab, and confirm your code is there. If your spawn is placed, it will start running on the next tick.
+
+---
+
+### Manual Setup
+
+#### 1. Create a GitHub repo (optional)
+
+```bash
+git clone https://github.com/your-username/your-repo.git
+cd your-repo
+```
+
+#### 2. Add `screeps-api` to your project
+
+Create a `package.json`:
 
 ```json
 {
   "name": "my-screeps-bot",
   "version": "1.0.0",
   "private": true,
-  "scripts": {
-    "deploy": "screeps-api upload --server private default/*.js"
-  },
   "devDependencies": {
     "screeps-api": "^1.16.1"
   }
@@ -56,11 +91,10 @@ Create a `package.json` with the deploy script:
 
 Then install:
 ```bash
-make install
-# or: npm install
+npm install
 ```
 
-### 3. Configure deployment
+#### 3. Configure deployment
 
 Create a `.screeps.yml` file in the root of your repo:
 
@@ -77,14 +111,13 @@ servers:
 
 > Don't commit this file — it contains your password. Add `.screeps.yml` and `node_modules/` to `.gitignore`.
 
-### 4. Deploy your code
+#### 4. Deploy
 
 ```bash
-make deploy
-# or: npx screeps-api upload --server private default/*.js
+npx screeps-api upload --server private default/*.js
 ```
 
-### 4. Verify
+#### 5. Verify
 
 Open the Screeps client, go to the **Script** tab, and confirm your code is there. If your spawn is placed, it will start running on the next tick.
 
