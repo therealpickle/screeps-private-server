@@ -30,26 +30,19 @@
 
 The starter kit includes a `Makefile` with shortcuts for common tasks.
 
-#### 1. Create a GitHub repo (optional)
-
-```bash
-git clone https://github.com/your-username/your-repo.git
-cd your-repo
-```
-
-#### 2. Copy the starter files
+#### 1. Copy the starter files
 
 ```bash
 cp -r /path/to/screeps-private-server/starter/{Makefile,package.json,.gitignore,default} .
 ```
 
-#### 3. Install dependencies
+#### 2. Install dependencies
 
 ```bash
 make install
 ```
 
-#### 4. Generate `.screeps.yml`
+#### 3. Generate `.screeps.yml`
 
 ```bash
 make init-screeps-yml
@@ -59,13 +52,13 @@ Then open `.screeps.yml` and fill in `<SERVER_ADDRESS>`, `<USERNAME>`, and `<PAS
 
 > Don't commit this file — it contains your password.
 
-#### 5. Deploy
+#### 4. Deploy
 
 ```bash
 make deploy-private
 ```
 
-#### 6. Verify
+#### 5. Verify
 
 Open the Screeps client, go to the **Script** tab, and confirm your code is there. If your spawn is placed, it will start running on the next tick.
 
@@ -73,20 +66,13 @@ Open the Screeps client, go to the **Script** tab, and confirm your code is ther
 
 ### Manual Setup
 
-#### 1. Create a GitHub repo (optional)
-
-```bash
-git clone https://github.com/your-username/your-repo.git
-cd your-repo
-```
-
-#### 2. Copy the starter files
+#### 1. Copy the starter files
 
 ```bash
 cp -r /path/to/screeps-private-server/starter/{Makefile,package.json,.gitignore,default} .
 ```
 
-#### 3. Add `screeps-api` to your project
+#### 2. Add `screeps-api` to your project
 
 Create a `package.json`:
 
@@ -106,7 +92,7 @@ Then install:
 npm install
 ```
 
-#### 4. Configure deployment
+#### 3. Configure deployment
 
 Create a `.screeps.yml` file in the root of your repo:
 
@@ -123,13 +109,13 @@ servers:
 
 > Don't commit this file — it contains your password. Add `.screeps.yml` and `node_modules/` to `.gitignore`.
 
-#### 5. Deploy
+#### 4. Deploy
 
 ```bash
 npx screeps-api upload --server private default/*.js
 ```
 
-#### 6. Verify
+#### 5. Verify
 
 Open the Screeps client, go to the **Script** tab, and confirm your code is there. If your spawn is placed, it will start running on the next tick.
 
