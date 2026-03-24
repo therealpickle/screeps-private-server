@@ -44,11 +44,25 @@ Registration is disabled. Add users via:
 make adduser USER=username PASS=password
 ```
 
+## First-time startup checklist
+
+After `docker compose up -d` on a fresh server, users won't be able to spawn until you:
+
+1. Import a map: `utils.importMap('random')`
+2. Resume the simulation: `system.resumeSimulation()`
+
+If that still doesn't work, initialize the database first: `system.resetAllData()`, then re-import the map and resume.
+
+## CLI output notes
+
+A response of `> >` (undefined) from the CLI is normal — it means the command ran successfully with no return value. This is expected for `setPassword`, `utils.reloadConfig()`, `system.resumeSimulation()`, etc.
+
 ## What didn't work
 
 - `npm install -g screeps` — requires Python 2, not available on modern Debian
 - `screeps-launcher` binary — downloads its own Node 12 internally, incompatible with Python 3.11+
 - Installing Python 2 from apt — package no longer available in Debian repos
+- `auth.setPassword(...)` — wrong, the correct call is just `setPassword(...)` with no `auth.` prefix
 
 ---
 
