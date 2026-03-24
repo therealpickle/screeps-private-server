@@ -66,6 +66,19 @@ Then in the CLI:
 setPassword("username", "password")
 ```
 
+## Makefile Reference
+
+| Command | Description |
+|---|---|
+| `make start` | Start the server |
+| `make stop` | Stop the server |
+| `make restart` | Restart the server |
+| `make rebuild` | Pull latest images and restart |
+| `make logs` | Tail server logs |
+| `make cli` | Open the server CLI |
+| `make reload` | Reload config.yml without restarting |
+| `make adduser USER=x PASS=y` | Add a new user |
+
 ## Usage
 
 - Server runs at `http://localhost:21025`
