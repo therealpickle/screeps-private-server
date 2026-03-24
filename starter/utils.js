@@ -6,6 +6,37 @@ const path = require('path');
 
 const SCREEPS_YML = path.join(__dirname, '.screeps.yml');
 
+function readConfig(filePath) {
+    if (!fs.existsSync(filePath)) return { servers: {} };
+    const config = { servers: {} };
+    let currentServer = null;
+    for (const line of fs.readFileSync(filePath, 'utf8').split('\n')) {
+        const serverMatch = line.match(/^  (\S+):$/);
+        const propMatch   = line.match(/^    (\w+): (.+)$/);
+        if (serverMatch) {
+            currentServer = serverMatch[1];
+            config.servers[currentServer] = {};
+        } else if (propMatch && currentServer) {
+            const v = propMatch[2];
+            config.servers[currentServer][propMatch[1]] =
+                v === 'true' ? true : v === 'false' ? false : isNaN(v) ? v : Number(v);
+        }
+    }
+    return config;
+}
+
+function writeConfig(filePath, config) {
+    const lines = ['servers:'];
+    for (const [name, server] of Object.entries(config.servers)) {
+        lines.push(`  ${name}:`);
+        for (const [key, val] of Object.entries(server)) {
+            lines.push(`    ${key}: ${val}`);
+        }
+    }
+    lines.push('');
+    fs.writeFileSync(filePath, lines.join('\n'));
+}
+
 // Parse --key=value or --key value style args
 function parseArgs(argv) {
     const args = {};
@@ -30,20 +61,21 @@ const commands = {
             process.exit(1);
         }
 
-        const yml = [
-            `servers:`,
-            `  ${name}:`,
-            `    host: ${address}`,
-            `    port: 21025`,
-            `    http: true`,
-            `    username: ${username}`,
-            `    password: ${password}`,
-            `    branch: default`,
-            '',
-        ].join('\n');
+        const config = readConfig(SCREEPS_YML);
+        const existing = config.servers[name] || {};
+        const isNew = !config.servers[name];
 
-        fs.writeFileSync(SCREEPS_YML, yml);
-        console.log(`Wrote .screeps.yml for server '${name}'`);
+        config.servers[name] = Object.assign(existing, {
+            host: address,
+            port: 21025,
+            http: true,
+            username,
+            password,
+            branch: existing.branch || 'default',
+        });
+
+        writeConfig(SCREEPS_YML, config);
+        console.log(`${isNew ? 'Added' : 'Updated'} server '${name}' in .screeps.yml`);
     },
 };
 
