@@ -1,15 +1,11 @@
-SERVER_NAME ?= private
+.PHONY: install init-screeps-yml deploy-%
 
-.PHONY: install configure deploy deploy-%
-
-configure:
-	node utils.js configure --address=$(SERVER_ADDRESS) --username=$(USERNAME) --password=$(PASSWORD) --name=$(SERVER_NAME)
+init-screeps-yml:
+	@printf 'servers:\n  private:\n    host: <SERVER_ADDRESS>\n    port: 21025\n    http: true\n    username: <USERNAME>\n    password: <PASSWORD>\n    branch: default\n' > .screeps.yml
+	@echo "Created .screeps.yml — fill in <SERVER_ADDRESS>, <USERNAME>, and <PASSWORD>"
 
 install:
 	npm install
-
-deploy:
-	npx screeps-api upload --server $(SERVER_NAME) default/*.js
 
 deploy-%:
 	npx screeps-api upload --server $* default/*.js
