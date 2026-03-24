@@ -1,8 +1,10 @@
 # Screeps Private Server
 
-Setup using the [Jomik screeps-server](https://github.com/Jomik/screeps-server) Docker image.
+**New player?** See the [Player Setup Guide](PLAYER_SETUP.md).
 
 ## Installation
+
+Setup using the [Jomik screeps-server](https://github.com/Jomik/screeps-server) Docker image.
 
 ### 1. Install Docker
 
@@ -57,7 +59,7 @@ docker compose exec screeps cli
 Then in the CLI:
 
 ```javascript
-auth.setPassword("username", "password")
+setPassword("username", "password")
 ```
 
 ## Usage
