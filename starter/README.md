@@ -4,16 +4,16 @@
 
 - Screeps purchased on Steam
 - Obtain from administrator:
-  - Server address
-  - Username
-  - Password
+  - `<SERVER_ADDRESS>`
+  - `<USERNAME>`
+  - `<PASSWORD>`
 
 ## Connecting to the Server
 
 1. Open Screeps via Steam
 2. On the login screen, click **Change server** in the bottom-left
-3. Enter the server details and click **Connect** (the admin will provide the host address):
-   - **Host:** `<server-address>`
+3. Enter the server details and click **Connect**:
+   - **Host:** `<SERVER_ADDRESS>`
    - **Port:** `21025`
 4. Log in with your username and password
 
@@ -24,7 +24,7 @@
 1. Once logged in, you'll see the world map
 2. Click **Select room** at the bottom of the screen to pick your starting location
 3. Place your first Spawn to begin
-4. Set a password via the web form at `http://<server-address>:21025/authmod/password/`
+4. Set a password via the web form at `http://<SERVER_ADDRESS>:21025/authmod/password/`
 
 ## Setting Up a Code Repository
 
@@ -67,11 +67,11 @@ Create a `.screeps.yml` file in the root of your repo:
 ```yaml
 servers:
   private:
-    host: <server-address>
+    host: <SERVER_ADDRESS>
     port: 21025
     http: true
-    username: your_username
-    password: your_password
+    username: <USERNAME>
+    password: <PASSWORD>
     branch: default
 ```
 
@@ -139,7 +139,7 @@ jobs:
               branch: default
           EOF
 
-      - run: npm run deploy
+      - run: make deploy
 ```
 
 Then add your credentials as GitHub Actions secrets in your repo under **Settings → Secrets and variables → Actions**:
@@ -162,15 +162,15 @@ servers:
     host: localhost
     port: 21025
     http: true
-    username: your_username
-    password: your_password
+    username: <USERNAME>
+    password: <PASSWORD>
     branch: default
   private:
-    host: ${{ secrets.SCREEPS_HOST }}
+    host: <SERVER_ADDRESS>
     port: 21025
     http: true
-    username: your_username
-    password: your_password
+    username: <USERNAME>
+    password: <PASSWORD>
     branch: default
 ```
 
@@ -185,13 +185,13 @@ servers:
 ### 3. Deploy and test locally
 
 ```bash
-npm run deploy -- --server local
+make deploy-local
 ```
 
 Your code will run on the local server. Once satisfied, deploy to the shared server:
 
 ```bash
-npm run deploy -- --server private
+make deploy
 ```
 
 ## Alternate Languages
@@ -211,7 +211,7 @@ Anything that compiles to WebAssembly (Go, Swift, Zig, etc.) is theoretically po
 
 ## Changing Your Password
 
-Go to `http://<server-address>:21025/authmod/password/` in your browser and fill in the form.
+Go to `http://<SERVER_ADDRESS>:21025/authmod/password/` in your browser and fill in the form.
 
 Alternatively, ask the server admin to reset it for you.
 
