@@ -2,7 +2,8 @@
 
 ## Prerequisites
 
-- Screeps purchased on Steam
+- `node`/`npm` installed.
+- Screeps purchased on Steam.
 - Obtain from administrator:
   - `<SERVER_ADDRESS>`
   - `<USERNAME>`
@@ -15,7 +16,8 @@
 3. Enter the server details and click **Connect**:
    - **Host:** `<SERVER_ADDRESS>`
    - **Port:** `21025`
-4. Log in with your username and password
+   - **Server password:** Leave blank
+4. Log in with your `<USERNAME>` and `<PASSWORD>`
 
 ## First Time In
 
