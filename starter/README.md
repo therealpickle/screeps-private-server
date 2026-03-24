@@ -53,7 +53,8 @@ Create a `package.json` with the deploy script:
 
 Then install:
 ```bash
-npm install
+make install
+# or: npm install
 ```
 
 ### 3. Configure deployment
@@ -76,7 +77,8 @@ servers:
 ### 4. Deploy your code
 
 ```bash
-npm run deploy
+make deploy
+# or: npx screeps-api upload --server private default/*.js
 ```
 
 ### 4. Verify
@@ -91,7 +93,8 @@ Run the deploy command whenever you want to push your latest code to the game:
 
 ```bash
 git pull
-npm run deploy
+make deploy
+# or: npx screeps-api upload --server private default/*.js
 ```
 
 This is the simplest approach — you control exactly when your code updates.
