@@ -1,3 +1,7 @@
+> **Personal project.** This is my own private Screeps server setup — documented the way I like it. No guarantees, no support, no promises. Use it as a reference if it's useful to you.
+>
+> Heavily assisted by [Claude](https://claude.ai).
+
 # Screeps Private Server
 
 **New player?** See the [Player Setup Guide](PLAYER_SETUP.md).
