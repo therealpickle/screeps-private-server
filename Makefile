@@ -20,7 +20,10 @@ logs:
 cli:
 	docker compose exec screeps cli
 
+reload:
+	echo 'utils.reloadConfig()' | docker compose exec -T screeps cli
+
 adduser:
 	@test -n "$(USER)" || (echo "Usage: make adduser USER=username PASS=password"; exit 1)
 	@test -n "$(PASS)" || (echo "Usage: make adduser USER=username PASS=password"; exit 1)
-	docker compose exec screeps cli --command 'auth.setPassword("$(USER)", "$(PASS)")'
+	echo 'setPassword("$(USER)", "$(PASS)")' | docker compose exec -T screeps cli
