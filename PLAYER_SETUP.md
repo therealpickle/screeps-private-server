@@ -64,6 +64,64 @@ Check your starter's `package.json` for the exact deploy command — the script 
 
 Open the Screeps client, go to the **Script** tab, and confirm your code is there. If your spawn is placed, it will start running on the next tick.
 
+## Deploying Code from Git
+
+### Option 1: Manual deploy
+
+Run the deploy command whenever you want to push your latest code to the game:
+
+```bash
+git pull
+npm run deploy -- --server private
+```
+
+This is the simplest approach — you control exactly when your code updates.
+
+### Option 2: Auto-deploy on push with GitHub Actions
+
+To automatically deploy to the server every time you push to `main`, create `.github/workflows/deploy.yml` in your repo:
+
+```yaml
+name: Deploy to Screeps
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - run: npm install
+
+      - name: Write .screeps.yml
+        run: |
+          cat > .screeps.yml << EOF
+          servers:
+            private:
+              host: <server-address>
+              port: 21025
+              http: true
+              username: ${{ secrets.SCREEPS_USERNAME }}
+              password: ${{ secrets.SCREEPS_PASSWORD }}
+              branch: default
+          EOF
+
+      - run: npm run deploy -- --server private
+```
+
+Then add your credentials as GitHub Actions secrets in your repo under **Settings → Secrets and variables → Actions**:
+
+- `SCREEPS_USERNAME`
+- `SCREEPS_PASSWORD`
+
 ## Alternate Languages
 
 JavaScript is the only officially supported language, but the community has tooling for several others:
