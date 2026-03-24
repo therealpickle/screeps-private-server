@@ -37,13 +37,19 @@ git clone https://github.com/your-username/your-repo.git
 cd your-repo
 ```
 
-#### 2. Install dependencies
+#### 2. Copy the starter files
+
+```bash
+cp -r /path/to/screeps-private-server/starter/{Makefile,package.json,.gitignore,default} .
+```
+
+#### 3. Install dependencies
 
 ```bash
 make install
 ```
 
-#### 3. Generate `.screeps.yml`
+#### 4. Generate `.screeps.yml`
 
 ```bash
 make init-screeps-yml
@@ -53,13 +59,13 @@ Then open `.screeps.yml` and fill in `<SERVER_ADDRESS>`, `<USERNAME>`, and `<PAS
 
 > Don't commit this file — it contains your password.
 
-#### 4. Deploy
+#### 5. Deploy
 
 ```bash
 make deploy-private
 ```
 
-#### 5. Verify
+#### 6. Verify
 
 Open the Screeps client, go to the **Script** tab, and confirm your code is there. If your spawn is placed, it will start running on the next tick.
 
@@ -74,7 +80,13 @@ git clone https://github.com/your-username/your-repo.git
 cd your-repo
 ```
 
-#### 2. Add `screeps-api` to your project
+#### 2. Copy the starter files
+
+```bash
+cp -r /path/to/screeps-private-server/starter/{Makefile,package.json,.gitignore,default} .
+```
+
+#### 3. Add `screeps-api` to your project
 
 Create a `package.json`:
 
@@ -94,7 +106,7 @@ Then install:
 npm install
 ```
 
-#### 3. Configure deployment
+#### 4. Configure deployment
 
 Create a `.screeps.yml` file in the root of your repo:
 
@@ -111,13 +123,13 @@ servers:
 
 > Don't commit this file — it contains your password. Add `.screeps.yml` and `node_modules/` to `.gitignore`.
 
-#### 4. Deploy
+#### 5. Deploy
 
 ```bash
 npx screeps-api upload --server private default/*.js
 ```
 
-#### 5. Verify
+#### 6. Verify
 
 Open the Screeps client, go to the **Script** tab, and confirm your code is there. If your spawn is placed, it will start running on the next tick.
 
