@@ -9,10 +9,9 @@
 
 1. Open Screeps via Steam
 2. On the login screen, click **Change server** in the bottom-left
-3. Enter the server address and click **Connect**:
-   ```
-   http://<server-address>:21025
-   ```
+3. Enter the server details and click **Connect**:
+   - **Host:** `<server-address>`
+   - **Port:** `21025`
 4. Log in with your username and password
 
 > If you don't have credentials yet, ask the server admin to run `make adduser` for you.
