@@ -123,6 +123,101 @@ Then add your credentials as GitHub Actions secrets in your repo under **Setting
 - `SCREEPS_USERNAME`
 - `SCREEPS_PASSWORD`
 
+## Running a Local Test Server
+
+Before pushing code to the shared server, you can run an identical server on your own machine.
+
+### 1. Install Docker
+
+```bash
+sudo apt install -y docker.io
+sudo systemctl enable docker
+sudo usermod -aG docker $USER
+```
+
+Log out and back in for the group change to take effect.
+
+### 2. Download the server files
+
+```bash
+mkdir ~/screeps-local && cd ~/screeps-local
+curl --remote-name-all https://raw.githubusercontent.com/Jomik/screeps-server/main/{docker-compose.yml,.env.sample,config.yml} \
+  && cp .env.sample .env
+```
+
+### 3. Configure
+
+Set your Steam API key in `.env`:
+```
+STEAM_KEY=your_key_here
+```
+
+Set mods in `config.yml`:
+```yaml
+mods:
+  - screepsmod-auth
+  - screepsmod-admin-utils
+  - screepsmod-mongo
+  - screepsmod-tickrate
+  - screepsmod-features
+```
+
+### 4. Start it
+
+```bash
+docker compose up -d
+```
+
+### 5. Initialize
+
+```bash
+echo 'utils.importMap("random")' | docker compose exec -T screeps cli
+echo 'system.resumeSimulation()' | docker compose exec -T screeps cli
+echo 'setPassword("yourusername", "yourpassword")' | docker compose exec -T screeps cli
+```
+
+### 6. Add a local entry to `.screeps.yml`
+
+In your bot repo, add a `local` server alongside your existing `private` entry:
+
+```yaml
+servers:
+  local:
+    host: localhost
+    port: 21025
+    http: true
+    username: your_username
+    password: your_password
+    branch: default
+  private:
+    host: ${{ secrets.SCREEPS_HOST }}
+    port: 21025
+    http: true
+    username: your_username
+    password: your_password
+    branch: default
+```
+
+### 7. Connect the Screeps client to your local server
+
+1. Open Screeps via Steam
+2. On the login screen, click **Change server** in the bottom-left
+3. Enter `http://localhost:21025` and click **Connect**
+4. Log in with the username and password you set in step 5
+5. Select a room and place your Spawn
+
+### 8. Deploy and test locally
+
+```bash
+npm run deploy -- --server local
+```
+
+Your code will run on the local server. Once satisfied, deploy to the shared server:
+
+```bash
+npm run deploy -- --server private
+```
+
 ## Alternate Languages
 
 JavaScript is the only officially supported language, but the community has tooling for several others:
