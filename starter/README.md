@@ -3,7 +3,9 @@
 ## Prerequisites
 
 - Screeps purchased on Steam
-- Your username and password (get these from the server admin)
+- Obtain from administrator:
+  - Username
+  - Password
 
 ## Connecting to the Server
 
