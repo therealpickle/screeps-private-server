@@ -106,7 +106,7 @@ jobs:
           cat > .screeps.yml << EOF
           servers:
             private:
-              host: <server-address>
+              host: ${{ secrets.SCREEPS_HOST }}
               port: 21025
               http: true
               username: ${{ secrets.SCREEPS_USERNAME }}
@@ -119,6 +119,7 @@ jobs:
 
 Then add your credentials as GitHub Actions secrets in your repo under **Settings → Secrets and variables → Actions**:
 
+- `SCREEPS_HOST`
 - `SCREEPS_USERNAME`
 - `SCREEPS_PASSWORD`
 
