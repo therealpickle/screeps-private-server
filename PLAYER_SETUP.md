@@ -24,6 +24,46 @@
 3. Place your first Spawn to begin
 4. Set a password via the web form at `http://<server-address>:21025/authmod/password/`
 
+## Setting Up a Code Repository
+
+### 1. Create a GitHub repo
+
+Fork or clone the [screeps-starter](https://github.com/screeps/starter-kit), then clone your repo locally:
+```bash
+git clone https://github.com/your-username/your-repo.git
+cd your-repo
+npm install
+```
+
+### 2. Configure deployment
+
+Create a `.screeps.yml` file in the root of your repo:
+
+```yaml
+servers:
+  private:
+    host: <server-address>
+    port: 21025
+    http: true
+    username: your_username
+    password: your_password
+    branch: default
+```
+
+> Don't commit this file — it contains your password. Add it to `.gitignore`.
+
+### 3. Deploy your code
+
+```bash
+npm run deploy -- --server private
+```
+
+Check your starter's `package.json` for the exact deploy command — the script name may vary.
+
+### 4. Verify
+
+Open the Screeps client, go to the **Script** tab, and confirm your code is there. If your spawn is placed, it will start running on the next tick.
+
 ## Changing Your Password
 
 Go to `http://<server-address>:21025/authmod/password/` in your browser and fill in the form.
