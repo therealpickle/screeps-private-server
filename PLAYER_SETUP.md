@@ -64,6 +64,21 @@ Check your starter's `package.json` for the exact deploy command — the script 
 
 Open the Screeps client, go to the **Script** tab, and confirm your code is there. If your spawn is placed, it will start running on the next tick.
 
+## Alternate Languages
+
+JavaScript is the only officially supported language, but the community has tooling for several others:
+
+| Language | Approach | Starter / Tooling |
+|---|---|---|
+| TypeScript | Compiles to JS | [screeps-typescript-starter](https://github.com/screepers/screeps-typescript-starter) |
+| Rust | WebAssembly | [screeps-starter-rust](https://github.com/rustyscreeps/screeps-starter-rust) |
+| Python | Transpiles to JS | [screeps-starter-python](https://github.com/daboross/screeps-starter-python) |
+| Kotlin | Compiles to JS | [screeps-kotlin-starter](https://github.com/exaV/screeps-kotlin-starter) |
+| C# / F# | WebAssembly (.NET 8) | [ScreepsDotNet](https://github.com/thomasfn/ScreepsDotNet) |
+| C / C++ | WebAssembly (Emscripten) | [cppreeps](https://github.com/screepers/cppreeps) |
+
+Anything that compiles to WebAssembly (Go, Swift, Zig, etc.) is theoretically possible but requires manually defining the game API bindings.
+
 ## Changing Your Password
 
 Go to `http://<server-address>:21025/authmod/password/` in your browser and fill in the form.
