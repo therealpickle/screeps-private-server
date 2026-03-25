@@ -29,9 +29,8 @@ module.exports = function(config) {
             if (!room) return res.status(400).json({ ok: 0, error: 'room required' });
             try {
                 const db = config.common.storage.db;
-                const doc = await db['rooms.terrain'].findOne({ _id: room });
-                const terrain = doc ? (doc.terrain || doc.data || doc.encoded || null) : null;
-                res.json({ ok: 1, terrain, _keys: doc ? Object.keys(doc) : [] });
+                const doc = await db['rooms.terrain'].findOne({ room });
+                res.json({ ok: 1, terrain: doc ? (doc.terrain || doc.data || null) : null });
             } catch(e) {
                 res.status(500).json({ ok: 0, error: e.message });
             }
@@ -41,15 +40,15 @@ module.exports = function(config) {
             const room = req.query.room;
             if (!room) return res.status(400).json({ ok: 0, error: 'room required' });
             try {
-                const db = config.common.storage.db;
-                const [objects, envDoc] = await Promise.all([
+                const { db, env } = config.common.storage;
+                const [objects, gameTime] = await Promise.all([
                     db['rooms.objects'].find({ room }),
-                    db['env'].findOne({ _id: 'gameTime' }).catch(() => null),
+                    env ? env.get('gameTime').catch(() => null) : Promise.resolve(null),
                 ]);
                 res.json({
                     ok: 1,
                     objects: objects || [],
-                    gameTime: envDoc ? envDoc.value : null,
+                    gameTime: gameTime ? parseInt(gameTime) : null,
                 });
             } catch(e) {
                 res.status(500).json({ ok: 0, error: e.message });
