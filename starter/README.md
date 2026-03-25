@@ -124,21 +124,7 @@ npx screeps-api upload --server private default/*.js
 
 Open the Screeps client, go to the **Script** tab, and confirm your code is there. If your spawn is placed, it will start running on the next tick.
 
-## Deploying Code from Git
-
-### Option 1: Manual deploy
-
-Run the deploy command whenever you want to push your latest code to the game:
-
-```bash
-git pull
-make deploy
-# or: npx screeps-api upload --server private default/*.js
-```
-
-This is the simplest approach — you control exactly when your code updates.
-
-### Option 2: Auto-deploy on push with GitHub Actions
+## Deploying Code from GitHub Actions
 
 To automatically deploy to the server every time you push to `main`, create `.github/workflows/deploy.yml` in your repo:
 
