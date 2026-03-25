@@ -4,6 +4,7 @@ mods:
     - screepsmod-mongo
     - screepsmod-tickrate
     - screepsmod-features
+    - screepsmod-stats
 bots:
   simplebot: screepsbot-zeswarm
 
