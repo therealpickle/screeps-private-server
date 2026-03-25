@@ -268,6 +268,8 @@ Returns:
 
 Use the token in subsequent requests with the header `X-Token: <TOKEN>`.
 
+> If this returns `Unauthorized` instead of a token, it's a sign you've hit the known auth issue described in [First Time In](#first-time-in) — ask the server admin to reset your password.
+
 ## Changing Your Password
 
 Go to `http://<SERVER_ADDRESS>:21025/authmod/password/` in your browser and fill in the form.
