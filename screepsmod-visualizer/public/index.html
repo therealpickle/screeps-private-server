@@ -55,6 +55,34 @@ select:focus { border-color: #555; }
     padding: 16px;
     gap: 20px;
 }
+#room-info {
+    width: 160px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    font-size: 0.7rem;
+}
+.ri-section {
+    border-bottom: 1px solid #1a1a1a;
+    padding: 6px 0 8px;
+}
+.ri-section:first-child { padding-top: 0; }
+.ri-heading {
+    color: #444;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-size: 0.6rem;
+    margin-bottom: 5px;
+}
+.ri-row {
+    display: flex;
+    justify-content: space-between;
+    color: #555;
+    padding: 1px 0;
+}
+.ri-row b { color: #888; font-weight: normal; }
+.ri-row span { color: #666; }
 #map-wrap {
     display: grid;
     grid-template-columns: auto 600px auto;
@@ -168,6 +196,7 @@ canvas {
 </div>
 
 <div id="canvas-wrap">
+    <div id="room-info"></div>
     <div id="map-wrap">
         <button class="nav-arrow" id="nav-N" disabled>▲</button>
         <button class="nav-arrow" id="nav-S" disabled>▼</button>
@@ -250,6 +279,7 @@ let pollTimer = null;
 let statsTimer = null;
 let objectsCache = [];
 let allRooms = [];
+let statsOwnerName = null;
 
 // ---- Navigation ----
 const NAV_DIRS = { N: 'N', S: 'S', E: 'E', W: 'W' };
@@ -378,6 +408,7 @@ async function tick() {
         objectsCache = data.objects || [];
         if (data.gameTime !== null) tickEl.textContent = data.gameTime;
         renderObjects();
+        renderRoomInfo();
         clearError();
     } catch(e) {
         showError('Update error: ' + e.message);
@@ -403,6 +434,7 @@ function fmt(n) {
 }
 
 function renderStats(data) {
+    statsOwnerName = data && data.owner ? data.owner.username : null;
     if (!data || !data.owner) {
         statsOwner.innerHTML = '<i style="color:#444">unowned</i>';
         // clear stat rows
@@ -438,6 +470,70 @@ function renderStats(data) {
             <div class="stat-bars">${bars}</div>
         `;
     }
+}
+
+// ---- Room Info ----
+function renderRoomInfo() {
+    const el = document.getElementById('room-info');
+    if (!el) return;
+
+    const counts = {};
+    let controllerLevel = null;
+    let mineralType = null;
+    let ownCreeps = 0, hostileCreeps = 0, npcCreeps = 0;
+
+    for (const obj of objectsCache) {
+        if (obj.type === 'creep' || obj.type === 'powerCreep') {
+            if (!obj.user) npcCreeps++;
+            else ownCreeps++;
+        } else if (obj.type === 'controller') {
+            controllerLevel = obj.level !== undefined ? obj.level : null;
+        } else if (obj.type === 'mineral' || obj.type === 'deposit') {
+            mineralType = obj.mineralType || obj.depositType || '?';
+        } else {
+            counts[obj.type] = (counts[obj.type] || 0) + 1;
+        }
+    }
+
+    const STRUCT_ORDER = [
+        'spawn','extension','tower','storage','terminal','link',
+        'lab','powerSpawn','nuker','observer','extractor',
+        'container','rampart','constructedWall','road','constructionSite',
+    ];
+
+    const sections = [];
+
+    // Owner / controller
+    let ownerLine = statsOwnerName
+        ? `<div class="ri-row"><b>owner</b><span>${statsOwnerName}</span></div>`
+        : `<div class="ri-row"><b>owner</b><span style="color:#333">—</span></div>`;
+    let ctrlLine = controllerLevel !== null
+        ? `<div class="ri-row"><b>controller</b><span>lv ${controllerLevel}</span></div>`
+        : '';
+    sections.push(`<div class="ri-section">${ownerLine}${ctrlLine}</div>`);
+
+    // Structures
+    const structRows = STRUCT_ORDER
+        .filter(t => counts[t])
+        .map(t => `<div class="ri-row"><b>${t}</b><span>×${counts[t]}</span></div>`)
+        .join('');
+    if (structRows) sections.push(`<div class="ri-section"><div class="ri-heading">structures</div>${structRows}</div>`);
+
+    // Resources
+    const srcCount = counts['source'] || 0;
+    let resRows = '';
+    if (srcCount) resRows += `<div class="ri-row"><b>source</b><span>×${srcCount}</span></div>`;
+    if (mineralType) resRows += `<div class="ri-row"><b>mineral</b><span>${mineralType}</span></div>`;
+    if (resRows) sections.push(`<div class="ri-section"><div class="ri-heading">resources</div>${resRows}</div>`);
+
+    // Creeps
+    let creepRows = '';
+    if (ownCreeps)     creepRows += `<div class="ri-row"><b>own</b><span>×${ownCreeps}</span></div>`;
+    if (hostileCreeps) creepRows += `<div class="ri-row"><b style="color:#884444">hostile</b><span>×${hostileCreeps}</span></div>`;
+    if (npcCreeps)     creepRows += `<div class="ri-row"><b>npc</b><span>×${npcCreeps}</span></div>`;
+    if (creepRows) sections.push(`<div class="ri-section"><div class="ri-heading">creeps</div>${creepRows}</div>`);
+
+    el.innerHTML = sections.join('');
 }
 
 // ---- Render Objects ----
