@@ -28,6 +28,31 @@
 
 > **Known issue:** After first login (and possibly after placing your Spawn), some parts of the API — including token auth — may not work correctly. If you're getting auth errors, ask the server admin to reset your password with `make adduser`. It's unclear whether changing your password via the web form above resolves this or not.
 
+## Getting an API Token
+
+To use the Screeps HTTP API directly (e.g. for tooling or scripts), you'll need an auth token:
+
+```bash
+curl -s -X POST http://<SERVER_ADDRESS>:21025/api/auth/signin \
+  -H "Content-Type: application/json" \
+  -d '{"email":"<USERNAME>","password":"<PASSWORD>"}'
+```
+
+Returns:
+```json
+{"ok":1,"token":"<TOKEN>"}
+```
+
+Use the token in subsequent requests with the header `X-Token: <TOKEN>`.
+
+> If this returns `Unauthorized` instead of a token, it's a sign you've hit the known auth issue described in [First Time In](#first-time-in) — ask the server admin to reset your password.
+
+## Changing Your Password
+
+Go to `http://<SERVER_ADDRESS>:21025/authmod/password/` in your browser and fill in the form.
+
+Alternatively, ask the server admin to reset it for you.
+
 ## Setting Up a Code Repository
 
 I'd recommend setting up a git repo for your code and I run under the assumption
@@ -230,31 +255,6 @@ JavaScript is the only officially supported language, but the community has tool
 | C / C++ | WebAssembly (Emscripten) | [cppreeps](https://github.com/screepers/cppreeps) |
 
 Anything that compiles to WebAssembly (Go, Swift, Zig, etc.) is theoretically possible but requires manually defining the game API bindings.
-
-## Getting an API Token
-
-To use the Screeps HTTP API directly (e.g. for tooling or scripts), you'll need an auth token:
-
-```bash
-curl -s -X POST http://<SERVER_ADDRESS>:21025/api/auth/signin \
-  -H "Content-Type: application/json" \
-  -d '{"email":"<USERNAME>","password":"<PASSWORD>"}'
-```
-
-Returns:
-```json
-{"ok":1,"token":"<TOKEN>"}
-```
-
-Use the token in subsequent requests with the header `X-Token: <TOKEN>`.
-
-> If this returns `Unauthorized` instead of a token, it's a sign you've hit the known auth issue described in [First Time In](#first-time-in) — ask the server admin to reset your password.
-
-## Changing Your Password
-
-Go to `http://<SERVER_ADDRESS>:21025/authmod/password/` in your browser and fill in the form.
-
-Alternatively, ask the server admin to reset it for you.
 
 ## Notes
 
