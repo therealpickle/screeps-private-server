@@ -249,6 +249,23 @@ JavaScript is the only officially supported language, but the community has tool
 
 Anything that compiles to WebAssembly (Go, Swift, Zig, etc.) is theoretically possible but requires manually defining the game API bindings.
 
+## Getting an API Token
+
+To use the Screeps HTTP API directly (e.g. for tooling or scripts), you'll need an auth token:
+
+```bash
+curl -s -X POST http://<SERVER_ADDRESS>:21025/api/auth/signin \
+  -H "Content-Type: application/json" \
+  -d '{"email":"<USERNAME>","password":"<PASSWORD>"}'
+```
+
+Returns:
+```json
+{"ok":1,"token":"<TOKEN>"}
+```
+
+Use the token in subsequent requests with the header `X-Token: <TOKEN>`.
+
 ## Changing Your Password
 
 Go to `http://<SERVER_ADDRESS>:21025/authmod/password/` in your browser and fill in the form.
