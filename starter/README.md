@@ -26,6 +26,8 @@
 3. Place your first Spawn to begin
 4. Set a password via the web form at `http://<SERVER_ADDRESS>:21025/authmod/password/`
 
+> **Known issue:** After first login (and possibly after placing your Spawn), some parts of the API — including token auth — may not work correctly. If you're getting auth errors, ask the server admin to reset your password with `make adduser`. It's unclear whether changing your password via the web form above resolves this or not.
+
 ## Setting Up a Code Repository
 
 I'd recommend setting up a git repo for your code and I run under the assumption
