@@ -69,22 +69,22 @@ select:focus { border-color: #555; }
     height: 600px;
 }
 .nav-arrow {
-    background: #111;
-    border: 1px solid #2a2a2a;
-    color: #555;
+    background: #0d0d0d;
+    border: 1px solid #222;
+    color: #383838;
     cursor: pointer;
     font-size: 0.8rem;
     padding: 4px 10px;
     line-height: 1.4;
     font-family: inherit;
-    transition: color 0.1s, border-color 0.1s;
+    transition: color 0.15s, border-color 0.15s;
 }
-.nav-arrow:hover:not(:disabled) { color: #ccc; border-color: #666; }
-.nav-arrow:disabled { color: #1e1e1e; border-color: #181818; cursor: default; }
-#nav-N { grid-column: 2; grid-row: 1; justify-self: center; align-self: end;   margin-bottom: 4px; }
-#nav-S { grid-column: 2; grid-row: 3; justify-self: center; align-self: start; margin-top: 4px; }
-#nav-W { grid-column: 1; grid-row: 2; justify-self: end;    align-self: center; margin-right: 4px; }
-#nav-E { grid-column: 3; grid-row: 2; justify-self: start;  align-self: center; margin-left: 4px; }
+.nav-arrow:hover:not(:disabled) { color: #aaa; border-color: #555; }
+.nav-arrow:disabled { color: #181818; border-color: #141414; cursor: default; }
+#nav-N { grid-column: 2; grid-row: 1; justify-self: stretch; align-self: end;    margin-bottom: 4px; }
+#nav-S { grid-column: 2; grid-row: 3; justify-self: stretch; align-self: start;  margin-top: 4px; }
+#nav-W { grid-column: 1; grid-row: 2; justify-self: end;     align-self: stretch; margin-right: 4px; }
+#nav-E { grid-column: 3; grid-row: 2; justify-self: start;   align-self: stretch; margin-left: 4px; }
 canvas {
     position: absolute;
     top: 0; left: 0;
