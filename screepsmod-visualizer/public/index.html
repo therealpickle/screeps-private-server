@@ -178,14 +178,20 @@ async function init() {
         roomSelect.innerHTML = data.rooms.map(r =>
             `<option value="${r}">${r}</option>`
         ).join('');
-        selectRoom(data.rooms[0]);
+        const initial = new URLSearchParams(location.search).get('room');
+        const room = (initial && data.rooms.includes(initial)) ? initial : data.rooms[0];
+        roomSelect.value = room;
+        selectRoom(room);
     } catch(e) {
         showError('Failed to load rooms: ' + e.message);
     }
 }
 
 roomSelect.addEventListener('change', () => {
-    if (roomSelect.value) selectRoom(roomSelect.value);
+    if (roomSelect.value) {
+        history.replaceState(null, '', '?room=' + roomSelect.value);
+        selectRoom(roomSelect.value);
+    }
 });
 
 async function selectRoom(room) {
