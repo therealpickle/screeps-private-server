@@ -30,7 +30,8 @@ module.exports = function(config) {
             try {
                 const db = config.common.storage.db;
                 const doc = await db['rooms.terrain'].findOne({ _id: room });
-                res.json({ ok: 1, terrain: doc ? (doc.terrain || doc.data || null) : null });
+                const terrain = doc ? (doc.terrain || doc.data || doc.encoded || null) : null;
+                res.json({ ok: 1, terrain, _keys: doc ? Object.keys(doc) : [] });
             } catch(e) {
                 res.status(500).json({ ok: 0, error: e.message });
             }
