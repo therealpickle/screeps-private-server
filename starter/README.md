@@ -77,13 +77,7 @@ Open the Screeps client, go to the **Script** tab, and confirm your code is ther
 
 ### Manual Setup
 
-#### 1. Copy the starter files
-
-```bash
-cp -r /path/to/screeps-private-server/starter/{Makefile,package.json,.gitignore,default} .
-```
-
-#### 2. Add `screeps-api` to your project
+#### 1. Add `screeps-api` to your project
 
 Create a `package.json`:
 
@@ -103,7 +97,7 @@ Then install:
 npm install
 ```
 
-#### 3. Configure deployment
+#### 2. Configure deployment
 
 Create a `.screeps.yml` file in the root of your repo:
 
@@ -120,13 +114,13 @@ servers:
 
 > Don't commit this file — it contains your password. Add `.screeps.yml` and `node_modules/` to `.gitignore`.
 
-#### 4. Deploy
+#### 3. Deploy
 
 ```bash
 npx screeps-api upload --server private default/*.js
 ```
 
-#### 5. Verify
+#### 4. Verify
 
 Open the Screeps client, go to the **Script** tab, and confirm your code is there. If your spawn is placed, it will start running on the next tick.
 
