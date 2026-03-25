@@ -1,4 +1,15 @@
 services:
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "21026:21026"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
+    depends_on:
+      - screeps
+    restart: unless-stopped
+
   screeps:
     image: ghcr.io/jomik/screeps-server:edge
     depends_on:
