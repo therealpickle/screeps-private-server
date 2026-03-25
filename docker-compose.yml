@@ -17,7 +17,9 @@ services:
       STEAM_KEY: ${STEAM_KEY:?"Missing steam key"}
       STATS_KEY: ${STATS_KEY:?"Missing stats key"}
     restart: unless-stopped
-    build: server
+    build:
+      context: .
+      dockerfile: server/Dockerfile
 
   mongo:
     image: mongo:4.4.30

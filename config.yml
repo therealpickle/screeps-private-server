@@ -5,6 +5,7 @@ mods:
     - screepsmod-tickrate
     - screepsmod-features
     - screepsmod-stats
+    - screepsmod-visualizer
 bots:
   simplebot: screepsbot-zeswarm
 

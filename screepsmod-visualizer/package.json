@@ -1,0 +1,6 @@
+{
+  "name": "screepsmod-visualizer",
+  "version": "1.0.0",
+  "description": "Real-time room map visualizer for Screeps private server",
+  "main": "index.js"
+}

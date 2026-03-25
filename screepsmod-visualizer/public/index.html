@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Screeps Visualizer</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+    background: #0a0a0a;
+    color: #ccc;
+    font-family: 'Courier New', monospace;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+#header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 10px 16px;
+    background: #111;
+    border-bottom: 1px solid #222;
+    flex-shrink: 0;
+}
+#header h1 {
+    font-size: 0.85rem;
+    color: #555;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+}
+select {
+    background: #1a1a1a;
+    color: #ccc;
+    border: 1px solid #333;
+    padding: 4px 8px;
+    font-family: inherit;
+    font-size: 0.85rem;
+    outline: none;
+    cursor: pointer;
+}
+select:focus { border-color: #555; }
+#status {
+    margin-left: auto;
+    font-size: 0.75rem;
+    color: #444;
+}
+#status span { color: #666; }
+#canvas-wrap {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: auto;
+    padding: 16px;
+}
+#layers {
+    position: relative;
+    width: 600px;
+    height: 600px;
+    flex-shrink: 0;
+}
+canvas {
+    position: absolute;
+    top: 0; left: 0;
+    image-rendering: pixelated;
+}
+#objects-canvas { cursor: crosshair; }
+#tooltip {
+    position: fixed;
+    background: #161616;
+    border: 1px solid #333;
+    padding: 8px 10px;
+    font-size: 0.72rem;
+    line-height: 1.6;
+    pointer-events: none;
+    display: none;
+    max-width: 220px;
+    z-index: 100;
+    color: #aaa;
+}
+#tooltip b { color: #eee; }
+#tooltip hr { border: none; border-top: 1px solid #333; margin: 4px 0; }
+#error {
+    position: fixed;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #300;
+    border: 1px solid #600;
+    color: #f88;
+    padding: 6px 14px;
+    font-size: 0.75rem;
+    display: none;
+}
+</style>
+</head>
+<body>
+
+<div id="header">
+    <h1>Screeps Visualizer</h1>
+    <select id="room-select"><option value="">loading rooms...</option></select>
+    <div id="status">tick: <span id="tick">--</span> &nbsp; room: <span id="room-label">--</span></div>
+</div>
+
+<div id="canvas-wrap">
+    <div id="layers">
+        <canvas id="terrain-canvas" width="600" height="600"></canvas>
+        <canvas id="objects-canvas" width="600" height="600"></canvas>
+    </div>
+</div>
+
+<div id="tooltip"></div>
+<div id="error"></div>
+
+<script>
+const TILE = 12;
+const SIZE = 50;
+
+const terrainCanvas = document.getElementById('terrain-canvas');
+const objectsCanvas = document.getElementById('objects-canvas');
+const tCtx = terrainCanvas.getContext('2d');
+const oCtx = objectsCanvas.getContext('2d');
+const roomSelect = document.getElementById('room-select');
+const tickEl = document.getElementById('tick');
+const roomLabel = document.getElementById('room-label');
+const tooltip = document.getElementById('tooltip');
+const errorEl = document.getElementById('error');
+
+// ---- Colors ----
+
+const TERRAIN_COLOR = [
+    '#141414',  // 0: plain
+    '#2b2b2b',  // 1: wall
+    '#0d1a0d',  // 2: swamp
+    '#2b2b2b',  // 3: wall+swamp (treat as wall)
+];
+
+const STRUCT = {
+    spawn:          { color: '#00ccff', size: 10 },
+    extension:      { color: '#0077bb', size: 7  },
+    tower:          { color: '#cc3333', size: 9  },
+    storage:        { color: '#cc8800', size: 10 },
+    container:      { color: '#886633', size: 8  },
+    link:           { color: '#008888', size: 7  },
+    lab:            { color: '#880088', size: 9  },
+    terminal:       { color: '#888800', size: 10 },
+    nuker:          { color: '#cc0000', size: 10 },
+    observer:       { color: '#446644', size: 6  },
+    powerSpawn:     { color: '#cc4400', size: 10 },
+    extractor:      { color: '#884488', size: 9  },
+    constructedWall:{ color: '#444444', size: 11 },
+    rampart:        { color: '#006600', size: 11, alpha: 0.4 },
+    road:           null,
+};
+
+const CREEP_COLORS = {
+    own:     '#00ff88',
+    hostile: '#ff4444',
+    npc:     '#ffaa00',
+};
+
+// ---- State ----
+let currentRoom = null;
+let pollTimer = null;
+let objectsCache = [];
+let myUser = null;
+
+// ---- Init ----
+async function init() {
+    try {
+        const res = await fetch('/visualizer/api/rooms');
+        const data = await res.json();
+        if (!data.ok || !data.rooms.length) {
+            showError('No rooms found');
+            return;
+        }
+        roomSelect.innerHTML = data.rooms.map(r =>
+            `<option value="${r}">${r}</option>`
+        ).join('');
+        selectRoom(data.rooms[0]);
+    } catch(e) {
+        showError('Failed to load rooms: ' + e.message);
+    }
+}
+
+roomSelect.addEventListener('change', () => {
+    if (roomSelect.value) selectRoom(roomSelect.value);
+});
+
+async function selectRoom(room) {
+    currentRoom = room;
+    roomLabel.textContent = room;
+    oCtx.clearRect(0, 0, 600, 600);
+    objectsCache = [];
+    if (pollTimer) clearInterval(pollTimer);
+
+    await loadTerrain(room);
+    await tick();
+    pollTimer = setInterval(tick, 1000);
+}
+
+// ---- Terrain ----
+async function loadTerrain(room) {
+    try {
+        const res = await fetch(`/visualizer/api/terrain?room=${room}`);
+        const data = await res.json();
+        if (data.ok && data.terrain) {
+            renderTerrain(data.terrain);
+        }
+    } catch(e) {
+        showError('Terrain error: ' + e.message);
+    }
+}
+
+function renderTerrain(encoded) {
+    for (let y = 0; y < SIZE; y++) {
+        for (let x = 0; x < SIZE; x++) {
+            const t = parseInt(encoded[y * SIZE + x]) || 0;
+            tCtx.fillStyle = TERRAIN_COLOR[t];
+            tCtx.fillRect(x * TILE, y * TILE, TILE, TILE);
+        }
+    }
+}
+
+// ---- Objects ----
+async function tick() {
+    if (!currentRoom) return;
+    try {
+        const res = await fetch(`/visualizer/api/objects?room=${currentRoom}`);
+        const data = await res.json();
+        if (!data.ok) return;
+        objectsCache = data.objects || [];
+        if (data.gameTime !== null) tickEl.textContent = data.gameTime;
+        renderObjects();
+        clearError();
+    } catch(e) {
+        showError('Update error: ' + e.message);
+    }
+}
+
+// ---- Render Objects ----
+function renderObjects() {
+    oCtx.clearRect(0, 0, 600, 600);
+
+    // Sort: roads first, then structures, then creeps on top
+    const sorted = [...objectsCache].sort((a, b) => {
+        const order = { road: 0, constructionSite: 1, rampart: 2 };
+        const ao = order[a.type] !== undefined ? order[a.type] : 3;
+        const bo = order[b.type] !== undefined ? order[b.type] : 3;
+        return ao - bo;
+    });
+
+    for (const obj of sorted) {
+        drawObject(obj);
+    }
+}
+
+function drawObject(obj) {
+    const px = obj.x * TILE;
+    const py = obj.y * TILE;
+    const cx = px + TILE / 2;
+    const cy = py + TILE / 2;
+
+    if (obj.type === 'creep' || obj.type === 'powerCreep') {
+        const color = creepColor(obj);
+        oCtx.beginPath();
+        oCtx.arc(cx, cy, TILE / 2 - 1, 0, Math.PI * 2);
+        oCtx.fillStyle = color + '99';
+        oCtx.fill();
+        oCtx.strokeStyle = color;
+        oCtx.lineWidth = 1.5;
+        oCtx.stroke();
+        return;
+    }
+
+    if (obj.type === 'source') {
+        // Yellow diamond
+        oCtx.beginPath();
+        oCtx.moveTo(cx, py + 1);
+        oCtx.lineTo(px + TILE - 1, cy);
+        oCtx.lineTo(cx, py + TILE - 1);
+        oCtx.lineTo(px + 1, cy);
+        oCtx.closePath();
+        oCtx.fillStyle = '#ffdd00';
+        oCtx.fill();
+        return;
+    }
+
+    if (obj.type === 'mineral' || obj.type === 'deposit') {
+        oCtx.beginPath();
+        oCtx.arc(cx, cy, TILE / 2 - 2, 0, Math.PI * 2);
+        oCtx.fillStyle = '#ff88ff';
+        oCtx.fill();
+        return;
+    }
+
+    if (obj.type === 'controller') {
+        oCtx.beginPath();
+        oCtx.arc(cx, cy, TILE / 2 - 1, 0, Math.PI * 2);
+        oCtx.fillStyle = '#8800cc88';
+        oCtx.fill();
+        oCtx.strokeStyle = '#aa44ff';
+        oCtx.lineWidth = 1.5;
+        oCtx.stroke();
+        return;
+    }
+
+    if (obj.type === 'road') {
+        oCtx.beginPath();
+        oCtx.arc(cx, cy, 2, 0, Math.PI * 2);
+        oCtx.fillStyle = '#555';
+        oCtx.fill();
+        return;
+    }
+
+    if (obj.type === 'constructionSite') {
+        oCtx.strokeStyle = 'rgba(255,255,255,0.35)';
+        oCtx.lineWidth = 1;
+        oCtx.setLineDash([2, 2]);
+        oCtx.strokeRect(px + 1.5, py + 1.5, TILE - 3, TILE - 3);
+        oCtx.setLineDash([]);
+        return;
+    }
+
+    const struct = STRUCT[obj.type];
+    if (!struct) return;
+
+    const pad = (TILE - struct.size) / 2;
+    oCtx.globalAlpha = struct.alpha || 1;
+    oCtx.fillStyle = struct.color;
+    oCtx.fillRect(px + pad, py + pad, struct.size, struct.size);
+    oCtx.strokeStyle = lighten(struct.color, 40);
+    oCtx.lineWidth = 1;
+    oCtx.strokeRect(px + pad, py + pad, struct.size, struct.size);
+    oCtx.globalAlpha = 1;
+}
+
+function creepColor(obj) {
+    if (!obj.user) return CREEP_COLORS.npc;
+    // We don't track own user here — just show all player creeps as own color
+    // Could be extended with user identification later
+    return CREEP_COLORS.own;
+}
+
+function lighten(hex, amount) {
+    const n = parseInt(hex.replace('#',''), 16);
+    const r = Math.min(255, (n >> 16) + amount);
+    const g = Math.min(255, ((n >> 8) & 0xff) + amount);
+    const b = Math.min(255, (n & 0xff) + amount);
+    return `rgb(${r},${g},${b})`;
+}
+
+// ---- Tooltip ----
+objectsCanvas.addEventListener('mousemove', function(e) {
+    const rect = objectsCanvas.getBoundingClientRect();
+    const tx = Math.floor((e.clientX - rect.left) / TILE);
+    const ty = Math.floor((e.clientY - rect.top) / TILE);
+    const objs = objectsCache.filter(o => o.x === tx && o.y === ty);
+
+    if (objs.length) {
+        tooltip.style.display = 'block';
+        tooltip.style.left = (e.clientX + 14) + 'px';
+        tooltip.style.top  = (e.clientY - 8)  + 'px';
+        tooltip.innerHTML = objs.map(tooltipHtml).join('<hr>');
+    } else {
+        tooltip.style.display = 'none';
+    }
+});
+objectsCanvas.addEventListener('mouseleave', () => tooltip.style.display = 'none');
+
+function tooltipHtml(obj) {
+    const lines = [`<b>${obj.type}</b>`];
+    if (obj.name)         lines.push(`name: ${obj.name}`);
+    if (obj.user)         lines.push(`user: ${obj.user}`);
+    if (obj.hits !== undefined && obj.hitsMax)
+                          lines.push(`hits: ${obj.hits} / ${obj.hitsMax}`);
+    if (obj.energy !== undefined && obj.energyCapacity !== undefined)
+                          lines.push(`energy: ${obj.energy} / ${obj.energyCapacity}`);
+    if (obj.store)        lines.push(`store: ${JSON.stringify(obj.store)}`);
+    if (obj.ticksToLive)  lines.push(`ttl: ${obj.ticksToLive}`);
+    if (obj.mineralType)  lines.push(`mineral: ${obj.mineralType}`);
+    if (obj.level !== undefined)
+                          lines.push(`level: ${obj.level}`);
+    return lines.join('<br>');
+}
+
+// ---- Error ----
+function showError(msg) {
+    errorEl.textContent = msg;
+    errorEl.style.display = 'block';
+}
+function clearError() {
+    errorEl.style.display = 'none';
+}
+
+// Start
+init();
+</script>
+</body>
+</html>
