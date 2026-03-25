@@ -53,6 +53,7 @@ select:focus { border-color: #555; }
     justify-content: center;
     overflow: auto;
     padding: 16px;
+    gap: 20px;
 }
 #layers {
     position: relative;
@@ -66,6 +67,47 @@ canvas {
     image-rendering: pixelated;
 }
 #objects-canvas { cursor: crosshair; }
+#stats-panel {
+    width: 200px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    align-self: flex-start;
+    padding-top: 4px;
+}
+#stats-owner {
+    font-size: 0.75rem;
+    color: #888;
+    border-bottom: 1px solid #222;
+    padding-bottom: 8px;
+}
+#stats-owner b { color: #aaa; }
+.stat-row {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+.stat-label {
+    font-size: 0.65rem;
+    color: #555;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    display: flex;
+    justify-content: space-between;
+}
+.stat-label span { color: #777; }
+.stat-bars {
+    display: flex;
+    gap: 2px;
+    align-items: flex-end;
+    height: 24px;
+}
+.stat-bar {
+    flex: 1;
+    background: #1e3a1e;
+    min-height: 2px;
+}
 #tooltip {
     position: fixed;
     background: #161616;
@@ -108,6 +150,9 @@ canvas {
         <canvas id="terrain-canvas" width="600" height="600"></canvas>
         <canvas id="objects-canvas" width="600" height="600"></canvas>
     </div>
+    <div id="stats-panel">
+        <div id="stats-owner">no owner</div>
+    </div>
 </div>
 
 <div id="tooltip"></div>
@@ -126,6 +171,8 @@ const tickEl = document.getElementById('tick');
 const roomLabel = document.getElementById('room-label');
 const tooltip = document.getElementById('tooltip');
 const errorEl = document.getElementById('error');
+const statsPanel = document.getElementById('stats-panel');
+const statsOwner = document.getElementById('stats-owner');
 
 // ---- Colors ----
 
@@ -160,11 +207,20 @@ const CREEP_COLORS = {
     npc:     '#ffaa00',
 };
 
+const STAT_META = [
+    { key: 'energyHarvested',   label: 'harvested',    color: '#4a8a4a' },
+    { key: 'energyControl',     label: 'upgraded',     color: '#6644aa' },
+    { key: 'energyCreeps',      label: 'spawned',      color: '#2266aa' },
+    { key: 'energyConstruction',label: 'built',        color: '#886633' },
+    { key: 'creepsProduced',    label: 'creeps born',  color: '#448844' },
+    { key: 'creepsLost',        label: 'creeps lost',  color: '#884444' },
+];
+
 // ---- State ----
 let currentRoom = null;
 let pollTimer = null;
+let statsTimer = null;
 let objectsCache = [];
-let myUser = null;
 
 // ---- Init ----
 async function init() {
@@ -200,10 +256,13 @@ async function selectRoom(room) {
     oCtx.clearRect(0, 0, 600, 600);
     objectsCache = [];
     if (pollTimer) clearInterval(pollTimer);
+    if (statsTimer) clearInterval(statsTimer);
 
     await loadTerrain(room);
     await tick();
+    await fetchStats(room);
     pollTimer = setInterval(tick, 1000);
+    statsTimer = setInterval(() => fetchStats(currentRoom), 30000);
 }
 
 // ---- Terrain ----
@@ -242,6 +301,62 @@ async function tick() {
         clearError();
     } catch(e) {
         showError('Update error: ' + e.message);
+    }
+}
+
+// ---- Stats ----
+async function fetchStats(room) {
+    try {
+        const res = await fetch(`/api/game/room-overview?room=${room}&interval=8`);
+        const data = await res.json();
+        if (!data.ok) { renderStats(null); return; }
+        renderStats(data);
+    } catch(e) {
+        renderStats(null);
+    }
+}
+
+function fmt(n) {
+    if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+    if (n >= 1000) return (n / 1000).toFixed(1) + 'k';
+    return String(n);
+}
+
+function renderStats(data) {
+    if (!data || !data.owner) {
+        statsOwner.innerHTML = '<i style="color:#444">unowned</i>';
+        // clear stat rows
+        for (const m of STAT_META) {
+            const el = document.getElementById('stat-' + m.key);
+            if (el) el.remove();
+        }
+        return;
+    }
+
+    statsOwner.innerHTML = `<b>${data.owner.username}</b>`;
+
+    for (const m of STAT_META) {
+        const values = (data.stats[m.key] || []).map(b => b.value);
+        const total = data.totals[m.key] || 0;
+        const max = Math.max(...values, 1);
+
+        let row = document.getElementById('stat-' + m.key);
+        if (!row) {
+            row = document.createElement('div');
+            row.className = 'stat-row';
+            row.id = 'stat-' + m.key;
+            statsPanel.appendChild(row);
+        }
+
+        const bars = values.map(v => {
+            const h = Math.max(2, Math.round((v / max) * 24));
+            return `<div class="stat-bar" style="height:${h}px;background:${m.color}88" title="${v}"></div>`;
+        }).join('');
+
+        row.innerHTML = `
+            <div class="stat-label">${m.label} <span>${fmt(total)}</span></div>
+            <div class="stat-bars">${bars}</div>
+        `;
     }
 }
 
@@ -344,8 +459,6 @@ function drawObject(obj) {
 
 function creepColor(obj) {
     if (!obj.user) return CREEP_COLORS.npc;
-    // We don't track own user here — just show all player creeps as own color
-    // Could be extended with user identification later
     return CREEP_COLORS.own;
 }
 
