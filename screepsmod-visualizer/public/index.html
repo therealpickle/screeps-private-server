@@ -49,12 +49,11 @@ select:focus { border-color: #555; }
 #canvas-wrap {
     flex: 1;
     display: flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
     overflow: auto;
     padding: 16px;
-    gap: 8px;
+    gap: 20px;
 }
 #layers {
     position: relative;
@@ -88,44 +87,45 @@ canvas {
 }
 #objects-canvas { cursor: crosshair; }
 #stats-panel {
-    width: 600px;
+    width: 200px;
     flex-shrink: 0;
     display: flex;
-    flex-direction: row;
-    gap: 0;
-    border-top: 1px solid #1a1a1a;
+    flex-direction: column;
+    gap: 12px;
+    align-self: flex-start;
+    padding-top: 4px;
 }
 #stats-owner {
-    display: none;
+    font-size: 0.75rem;
+    color: #888;
+    border-bottom: 1px solid #222;
+    padding-bottom: 8px;
 }
+#stats-owner b { color: #aaa; }
 .stat-row {
-    flex: 1;
     display: flex;
     flex-direction: column;
     gap: 3px;
-    padding: 6px 8px;
-    border-right: 1px solid #1a1a1a;
 }
-.stat-row:last-child { border-right: none; }
 .stat-label {
-    font-size: 0.6rem;
-    color: #444;
+    font-size: 0.65rem;
+    color: #555;
     text-transform: uppercase;
     letter-spacing: 1px;
     display: flex;
     justify-content: space-between;
-    white-space: nowrap;
 }
-.stat-label span { color: #666; }
+.stat-label span { color: #777; }
 .stat-bars {
     display: flex;
-    gap: 1px;
+    gap: 2px;
     align-items: flex-end;
-    height: 20px;
+    height: 24px;
 }
 .stat-bar {
     flex: 1;
-    min-height: 1px;
+    background: #1e3a1e;
+    min-height: 2px;
 }
 #tooltip {
     position: fixed;
@@ -174,7 +174,7 @@ canvas {
         <button class="nav-arrow" id="nav-E" disabled>▶</button>
     </div>
     <div id="stats-panel">
-        <div id="stats-owner"></div>
+        <div id="stats-owner">no owner</div>
     </div>
 </div>
 
@@ -398,17 +398,17 @@ function fmt(n) {
 }
 
 function renderStats(data) {
-    const owner = data && data.owner ? data.owner.username : null;
-    const ownerEl = document.getElementById('stats-owner');
-    if (ownerEl) ownerEl.textContent = owner || '';
-
     if (!data || !data.owner) {
+        statsOwner.innerHTML = '<i style="color:#444">unowned</i>';
+        // clear stat rows
         for (const m of STAT_META) {
             const el = document.getElementById('stat-' + m.key);
             if (el) el.remove();
         }
         return;
     }
+
+    statsOwner.innerHTML = `<b>${data.owner.username}</b>`;
 
     for (const m of STAT_META) {
         const values = (data.stats[m.key] || []).map(b => b.value);
