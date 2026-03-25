@@ -82,6 +82,7 @@ select:focus { border-color: #555; }
 #minimap {
     cursor: pointer;
     display: block;
+    max-width: 160px;
 }
 .ri-section {
     border-bottom: 1px solid #1a1a1a;
@@ -217,11 +218,11 @@ canvas {
 
 <div id="canvas-wrap">
     <div id="left-col">
-        <div id="room-info"></div>
         <div id="minimap-wrap">
             <div id="minimap-label">world</div>
             <canvas id="minimap"></canvas>
         </div>
+        <div id="room-info"></div>
     </div>
     <div id="map-wrap">
         <button class="nav-arrow" id="nav-N" disabled>▲</button>
