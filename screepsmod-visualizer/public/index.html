@@ -61,6 +61,25 @@ select:focus { border-color: #555; }
     height: 600px;
     flex-shrink: 0;
 }
+.nav-arrow {
+    position: absolute;
+    background: rgba(10,10,10,0.75);
+    border: 1px solid #333;
+    color: #555;
+    cursor: pointer;
+    font-size: 0.8rem;
+    padding: 2px 10px;
+    z-index: 10;
+    line-height: 1.4;
+    font-family: inherit;
+    transition: color 0.1s, border-color 0.1s;
+}
+.nav-arrow:hover:not(:disabled) { color: #ccc; border-color: #777; }
+.nav-arrow:disabled { color: #222; border-color: #1a1a1a; cursor: default; }
+#nav-N { top: 6px;    left: 50%; transform: translateX(-50%); }
+#nav-S { bottom: 6px; left: 50%; transform: translateX(-50%); }
+#nav-W { left: 6px;   top: 50%;  transform: translateY(-50%); }
+#nav-E { right: 6px;  top: 50%;  transform: translateY(-50%); }
 canvas {
     position: absolute;
     top: 0; left: 0;
@@ -149,6 +168,10 @@ canvas {
     <div id="layers">
         <canvas id="terrain-canvas" width="600" height="600"></canvas>
         <canvas id="objects-canvas" width="600" height="600"></canvas>
+        <button class="nav-arrow" id="nav-N" disabled>▲</button>
+        <button class="nav-arrow" id="nav-S" disabled>▼</button>
+        <button class="nav-arrow" id="nav-W" disabled>◀</button>
+        <button class="nav-arrow" id="nav-E" disabled>▶</button>
     </div>
     <div id="stats-panel">
         <div id="stats-owner">no owner</div>
@@ -221,6 +244,56 @@ let currentRoom = null;
 let pollTimer = null;
 let statsTimer = null;
 let objectsCache = [];
+let allRooms = [];
+
+// ---- Navigation ----
+const NAV_DIRS = { N: 'N', S: 'S', E: 'E', W: 'W' };
+
+function adjacentRoom(name, dir) {
+    const m = name.match(/^([EW])(\d+)([NS])(\d+)$/);
+    if (!m) return null;
+    let ew = m[1], ex = parseInt(m[2]), ns = m[3], ny = parseInt(m[4]);
+    switch (dir) {
+        case 'N':
+            if (ns === 'N') ny++;
+            else if (ny > 0) ny--;
+            else { ns = 'N'; ny = 0; }
+            break;
+        case 'S':
+            if (ns === 'S') ny++;
+            else if (ny > 0) ny--;
+            else { ns = 'S'; ny = 0; }
+            break;
+        case 'E':
+            if (ew === 'E') ex++;
+            else if (ex > 0) ex--;
+            else { ew = 'E'; ex = 0; }
+            break;
+        case 'W':
+            if (ew === 'W') ex++;
+            else if (ex > 0) ex--;
+            else { ew = 'W'; ex = 0; }
+            break;
+    }
+    return `${ew}${ex}${ns}${ny}`;
+}
+
+function updateNavArrows(room) {
+    for (const dir of ['N', 'S', 'E', 'W']) {
+        const btn = document.getElementById('nav-' + dir);
+        const neighbor = adjacentRoom(room, dir);
+        const exists = neighbor && allRooms.includes(neighbor);
+        btn.disabled = !exists;
+        btn.title = exists ? neighbor : '';
+        btn.onclick = exists ? () => navigateTo(neighbor) : null;
+    }
+}
+
+function navigateTo(room) {
+    roomSelect.value = room;
+    history.replaceState(null, '', '?room=' + room);
+    selectRoom(room);
+}
 
 // ---- Init ----
 async function init() {
@@ -231,6 +304,7 @@ async function init() {
             showError('No rooms found');
             return;
         }
+        allRooms = data.rooms;
         roomSelect.innerHTML = data.rooms.map(r =>
             `<option value="${r}">${r}</option>`
         ).join('');
@@ -253,6 +327,7 @@ roomSelect.addEventListener('change', () => {
 async function selectRoom(room) {
     currentRoom = room;
     roomLabel.textContent = room;
+    updateNavArrows(room);
     oCtx.clearRect(0, 0, 600, 600);
     objectsCache = [];
     if (pollTimer) clearInterval(pollTimer);
