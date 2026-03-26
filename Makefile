@@ -1,4 +1,7 @@
-.PHONY: start stop restart rebuild logs cli
+-include .env
+export
+
+.PHONY: start stop restart rebuild purge-cache logs cli
 
 start:
 	docker compose up -d
@@ -14,6 +17,15 @@ rebuild:
 	docker compose pull
 	docker compose build
 	docker compose up -d
+	$(MAKE) purge-cache
+
+purge-cache:
+	@echo "Purging Cloudflare cache..."
+	@curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$(CF_ZONE_ID)/purge_cache" \
+	  -H "Authorization: Bearer $(CF_API_TOKEN)" \
+	  -H "Content-Type: application/json" \
+	  --data '{"files":["https://screeps.therealpickle.net/visualizer/visualizer.css"]}' \
+	  | grep -o '"success":[a-z]*'
 
 logs:
 	docker compose logs screeps -f
