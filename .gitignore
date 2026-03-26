@@ -1,3 +1,4 @@
 .env
 *.claude*
 nginx/certs/
+docker-compose.override.yml

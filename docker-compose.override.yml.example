@@ -1,0 +1,11 @@
+# Local development override. Copy to docker-compose.override.yml (gitignored).
+# Docker Compose auto-applies this file when present — no extra flags needed.
+#
+# With this active:
+#   HTML/CSS changes  → visible immediately on next page load, no restart
+#   JS changes        → run: make restart
+#   First-time setup  → run: make rebuild  (builds image, then override takes over)
+services:
+  screeps:
+    volumes:
+      - ./screepsmod-visualizer:/screepsmod-visualizer

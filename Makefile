@@ -36,6 +36,11 @@ cli:
 reload:
 	echo 'utils.reloadConfig()' | docker compose exec -T screeps cli
 
+dev-setup:
+	@test -f docker-compose.override.yml \
+		&& echo "docker-compose.override.yml already exists" \
+		|| (cp docker-compose.override.yml.example docker-compose.override.yml && echo "Created docker-compose.override.yml — run: make rebuild")
+
 adduser:
 	@test -n "$(USER)" || (echo "Usage: make adduser USER=username PASS=password"; exit 1)
 	@test -n "$(PASS)" || (echo "Usage: make adduser USER=username PASS=password"; exit 1)

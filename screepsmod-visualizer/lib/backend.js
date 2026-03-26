@@ -114,8 +114,7 @@ function verifyToken(token, secret) {
 }
 
 module.exports = function(config) {
-    const html = fs.readFileSync(path.join(__dirname, '../public/index.html'), 'utf8');
-const css  = fs.readFileSync(path.join(__dirname, '../public/visualizer.css'), 'utf8');
+    const publicDir = path.join(__dirname, '../public');
     const secret = crypto.randomBytes(32).toString('hex');
 
     function requireAuth(req, res, next) {
@@ -168,12 +167,12 @@ const css  = fs.readFileSync(path.join(__dirname, '../public/visualizer.css'), '
         app.get('/visualizer/visualizer.css', function(req, res) {
             res.setHeader('Content-Type', 'text/css');
             res.setHeader('Cache-Control', 'no-store');
-            res.send(css);
+            res.send(fs.readFileSync(path.join(publicDir, 'visualizer.css'), 'utf8'));
         });
 
         app.get('/visualizer', requireAuth, function(req, res) {
             res.setHeader('Content-Type', 'text/html');
-            res.send(html);
+            res.send(fs.readFileSync(path.join(publicDir, 'index.html'), 'utf8'));
         });
 
         app.get('/visualizer/api/rooms', requireAuth, async function(req, res) {
