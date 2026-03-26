@@ -161,6 +161,7 @@ const css  = fs.readFileSync(path.join(__dirname, '../public/visualizer.css'), '
 
         app.get('/visualizer/visualizer.css', function(req, res) {
             res.setHeader('Content-Type', 'text/css');
+            res.setHeader('Cache-Control', 'no-store');
             res.send(css);
         });
 
