@@ -53,6 +53,7 @@ button:hover { background: #333; }
 <form method="POST" action="/visualizer/login">
     <h2>Screeps Visualizer</h2>
     {{ERROR}}
+    <input type="hidden" name="next" value="{{NEXT}}" />
     <input type="text" name="username" placeholder="Username" autofocus required />
     <input type="password" name="password" placeholder="Password" required />
     <button type="submit">Sign in</button>
@@ -125,7 +126,7 @@ const css  = fs.readFileSync(path.join(__dirname, '../public/visualizer.css'), '
             if (req.path.startsWith('/visualizer/api/')) {
                 return res.status(401).json({ ok: 0, error: 'Unauthorized' });
             }
-            return res.redirect('/visualizer/login');
+            return res.redirect('/visualizer/login?next=' + encodeURIComponent(req.url));
         }
         next();
     }
@@ -133,28 +134,33 @@ const css  = fs.readFileSync(path.join(__dirname, '../public/visualizer.css'), '
     config.backend.on('expressPreConfig', function(app) {
 
         app.get('/visualizer/login', function(req, res) {
+            const next = req.query.next || '/visualizer';
+            const html = LOGIN_HTML
+                .replace('{{ERROR}}', '')
+                .replace('{{NEXT}}', next.replace(/"/g, ''));
             res.setHeader('Content-Type', 'text/html');
-            res.send(LOGIN_HTML.replace('{{ERROR}}', ''));
+            res.send(html);
         });
 
         app.post('/visualizer/login', function(req, res) {
             parseFormBody(req, function(body) {
                 const username = body.username;
                 const password = body.password;
+                const next = (body.next && body.next.startsWith('/visualizer')) ? body.next : '/visualizer';
                 if (!username || !password || !config.auth) {
-                    return res.status(400).send(LOGIN_HTML.replace('{{ERROR}}', '<span class="error">Username and password required.</span>'));
+                    return res.status(400).send(LOGIN_HTML.replace('{{ERROR}}', '<span class="error">Username and password required.</span>').replace('{{NEXT}}', next));
                 }
                 config.auth.authUser(username, password)
                     .then(function(user) {
                         if (!user) {
-                            return res.send(LOGIN_HTML.replace('{{ERROR}}', '<span class="error">Invalid username or password.</span>'));
+                            return res.send(LOGIN_HTML.replace('{{ERROR}}', '<span class="error">Invalid username or password.</span>').replace('{{NEXT}}', next));
                         }
                         const token = makeToken(user._id, secret);
                         res.setHeader('Set-Cookie', 'viz_token=' + encodeURIComponent(token) + '; Path=/visualizer; HttpOnly; SameSite=Lax');
-                        res.redirect('/visualizer');
+                        res.redirect(next);
                     })
                     .catch(function() {
-                        res.send(LOGIN_HTML.replace('{{ERROR}}', '<span class="error">Login error. Please try again.</span>'));
+                        res.send(LOGIN_HTML.replace('{{ERROR}}', '<span class="error">Login error. Please try again.</span>').replace('{{NEXT}}', next));
                     });
             });
         });
