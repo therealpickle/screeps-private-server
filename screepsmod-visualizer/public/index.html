@@ -489,7 +489,10 @@ function renderMinimap() {
         const cx = (x - minX) * S;
         const cy = (maxY - y) * S;
         const stat = mapStatsCache[name];
-        ctx.fillStyle = (stat && stat.own) ? userColor(stat.own.user) : '#181818';
+        const ownUser = stat && stat.own && stat.own.user;
+        const ownEntry = ownUser && mapUsersCache[ownUser];
+        const isPlayer = ownEntry && ownEntry.username !== 'Invader' && ownEntry.username !== 'Source Keeper';
+        ctx.fillStyle = isPlayer ? userColor(ownUser) : '#181818';
         ctx.fillRect(cx, cy, CELL, CELL);
         if (name === currentRoom) {
             ctx.strokeStyle = '#fff';
