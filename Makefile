@@ -1,17 +1,21 @@
 -include .env
 export
 
-.PHONY: start stop restart rebuild purge-cache logs cli setup-staging _setup-staging-run
+.PHONY: start stop restart rebuild purge-cache logs cli setup-staging teardown-staging _verify_user
 
+# Start the server in the background
 start:
 	docker compose up -d
 
+# Stop the server without removing containers
 stop:
 	docker compose stop
 
+# Restart all containers
 restart:
 	docker compose restart
 
+# Pull latest images, rebuild, and restart; also purges CDN cache if configured
 rebuild:
 	docker compose down
 	docker compose pull
@@ -19,6 +23,8 @@ rebuild:
 	docker compose up -d
 	$(MAKE) purge-cache
 
+# This purges the production server cache. Will only run if CF_ZONE_ID and CF_API_TOKEN
+# are defined in the .env file
 purge-cache:
 	@if [ -n "$(CF_ZONE_ID)" ]; then \
 		echo "Purging Cloudflare cache..."; \
@@ -29,25 +35,33 @@ purge-cache:
 		  | grep -o '"success":[a-z]*'; \
 	fi
 
+# Tail the screeps container logs
 logs:
 	docker compose logs screeps -f
 
+# Open an interactive CLI session on the running server
 cli:
 	docker compose exec screeps cli
 
+# Reload config.yml without restarting the server
 reload:
 	echo 'utils.reloadConfig()' | docker compose exec -T screeps cli
 
+# Create or update a user's password: make adduser USER=username PASS=password
 adduser:
 	@test -n "$(USER)" || (echo "Usage: make adduser USER=username PASS=password"; exit 1)
 	@test -n "$(PASS)" || (echo "Usage: make adduser USER=username PASS=password"; exit 1)
 	echo 'setPassword("$(USER)", "$(PASS)")' | docker compose exec -T screeps cli
 
+################################################################################
+# Staging and testing setup
+################################################################################
+
 STAGING_USER ?= testuser
 STAGING_PASS ?= testpass
 STAGING_HOST ?= localhost
 
-
+# Make sure your user can use docker
  _verify_user:
 	@if ! groups | grep -q '\bdocker\b'; then \
 		echo "Error: $$(whoami) is not in the docker group."; \
@@ -58,6 +72,7 @@ STAGING_HOST ?= localhost
 		exit 1; \
 	fi
 
+# Initializes the server, and sets up the map
 setup-staging: _verify_user start
 	@echo "Waiting for server to be ready..."
 	@until bash -c 'echo >/dev/tcp/localhost/21025' 2>/dev/null; do sleep 2; done
@@ -72,4 +87,8 @@ setup-staging: _verify_user start
 	@echo ""
 	@printf 'servers:\n  staging:\n    host: $(STAGING_HOST)\n    port: 21025\n    http: true\n    username: $(STAGING_USER)\n    password: $(STAGING_PASS)\n    branch: default\n'
 	@echo ""
-	@echo "Deploy with: make deploy-staging  (from starter/)"
+	@echo "Deploy with: make deploy-staging  (from starter/, or from your project.)"
+
+# Stops the server and removes containers, volumes, and images
+teardown-staging:
+	docker compose down --volumes --rmi all
