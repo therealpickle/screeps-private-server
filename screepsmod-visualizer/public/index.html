@@ -502,6 +502,36 @@ function renderMinimap() {
     }
 }
 
+document.getElementById('minimap').addEventListener('mousemove', function(e) {
+    if (!minimapMeta) return;
+    const { minX, maxY, CELL, GAP } = minimapMeta;
+    const S = CELL + GAP;
+    const rect = this.getBoundingClientRect();
+    const scaleX = this.width / rect.width;
+    const scaleY = this.height / rect.height;
+    const col = Math.floor((e.clientX - rect.left) * scaleX / S);
+    const row = Math.floor((e.clientY - rect.top)  * scaleY / S);
+    const name = coordToRoom(col + minX, maxY - row);
+    const stat = mapStatsCache[name];
+    const ownUser = stat && stat.own && stat.own.user;
+    const ownEntry = ownUser && mapUsersCache[ownUser];
+    const isPlayer = ownEntry && ownEntry.username !== 'Invader' && ownEntry.username !== 'Source Keeper';
+    if (isPlayer) {
+        const badgeUrl = '/api/user/badge-svg?username=' + encodeURIComponent(ownEntry.username);
+        const ringColor = userColor(ownUser);
+        tooltip.innerHTML = `<div style="display:flex;align-items:center;gap:8px"><span style="display:inline-block;border-radius:50%;border:2px solid ${ringColor};line-height:0;flex-shrink:0"><img src="${badgeUrl}" width="24" height="24"></span><div><b>${ownEntry.username}</b><br>${name}</div></div>`;
+        tooltip.style.display = 'block';
+        tooltip.style.left = (e.clientX + 14) + 'px';
+        tooltip.style.top  = (e.clientY - 8)  + 'px';
+    } else {
+        tooltip.style.display = 'none';
+    }
+});
+
+document.getElementById('minimap').addEventListener('mouseleave', function() {
+    tooltip.style.display = 'none';
+});
+
 document.getElementById('minimap').addEventListener('click', function(e) {
     if (!minimapMeta) return;
     const { minX, maxY, CELL, GAP } = minimapMeta;
