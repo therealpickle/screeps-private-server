@@ -132,7 +132,9 @@ select:focus { border-color: #555; }
 #nav-N { grid-column: 3; grid-row: 1; justify-self: stretch; align-self: end;    margin-bottom: 4px; }
 #nav-S { grid-column: 3; grid-row: 3; justify-self: stretch; align-self: start;  margin-top: 4px; }
 #nav-W { grid-column: 2; grid-row: 2; justify-self: stretch; align-self: stretch; margin-right: 4px; }
-#nav-E { grid-column: 4; grid-row: 2; justify-self: start;   align-self: stretch; margin-left: 4px; }
+#nav-E  { grid-column: 4; grid-row: 2; justify-self: stretch; align-self: stretch; margin-left: 4px; }
+#vz-in  { grid-column: 4; grid-row: 1; justify-self: stretch; align-self: end;   margin-left: 4px; margin-bottom: 4px; }
+#vz-out { grid-column: 4; grid-row: 3; justify-self: stretch; align-self: start; margin-left: 4px; margin-top: 4px; }
 .zoom-btn {
     background: #0d0d0d;
     border: 1px solid #282828;

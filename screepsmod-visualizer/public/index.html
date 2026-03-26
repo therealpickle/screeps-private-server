@@ -26,8 +26,10 @@
         <button class="nav-arrow" id="nav-S" disabled>▼</button>
         <button class="nav-arrow" id="nav-W" disabled>◀</button>
         <button class="nav-arrow" id="nav-E" disabled>▶</button>
-        <button class="zoom-btn" id="zoom-in"  title="Zoom in">+</button>
-        <button class="zoom-btn" id="zoom-out" title="Zoom out">−</button>
+        <button class="zoom-btn" id="zoom-in"  title="Increase tile size">+</button>
+        <button class="zoom-btn" id="zoom-out" title="Decrease tile size">−</button>
+        <button class="zoom-btn" id="vz-in"    title="Zoom in">+</button>
+        <button class="zoom-btn" id="vz-out"   title="Zoom out" disabled>−</button>
         <div id="layers">
             <canvas id="terrain-canvas" width="600" height="600"></canvas>
             <canvas id="objects-canvas" width="600" height="600"></canvas>
@@ -186,6 +188,8 @@ function applyZoom(newTile) {
 
     document.getElementById('zoom-in').disabled  = TILE >= MAX_TILE;
     document.getElementById('zoom-out').disabled = TILE <= MIN_TILE;
+    document.getElementById('vz-in').disabled    = viewZoomIdx >= VIEW_ZOOM_STEPS.length - 1;
+    document.getElementById('vz-out').disabled   = viewZoomIdx <= 0;
 
     if (terrainCache) renderTerrain(terrainCache);
     renderObjects();
@@ -215,9 +219,14 @@ function applyViewZoom(newIdx, pivotMx, pivotMy) {
     }
     clampViewOffset();
     objectsCanvas.style.cursor = viewZoom > 1 ? 'grab' : 'crosshair';
+    document.getElementById('vz-in').disabled  = viewZoomIdx >= VIEW_ZOOM_STEPS.length - 1;
+    document.getElementById('vz-out').disabled = viewZoomIdx <= 0;
     if (terrainCache) renderTerrain(terrainCache);
     renderObjects();
 }
+
+document.getElementById('vz-in').addEventListener('click',  () => applyViewZoom(viewZoomIdx + 1));
+document.getElementById('vz-out').addEventListener('click', () => applyViewZoom(viewZoomIdx - 1));
 
 objectsCanvas.addEventListener('wheel', function(e) {
     e.preventDefault();
@@ -267,6 +276,8 @@ async function selectRoom(room) {
     objectsCache = [];
     viewZoomIdx = 0; viewZoom = 1; viewOffsetX = 0; viewOffsetY = 0;
     objectsCanvas.style.cursor = 'crosshair';
+    document.getElementById('vz-in').disabled  = false;
+    document.getElementById('vz-out').disabled = true;
     if (pollTimer) clearInterval(pollTimer);
     if (statsTimer) clearInterval(statsTimer);
 
