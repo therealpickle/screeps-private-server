@@ -7,7 +7,7 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body {
     background: #0a0a0a;
-    color: #ccc;
+    color: #e0e0e0;
     font-family: 'Courier New', monospace;
     font-size: 18px;
     height: 100vh;
@@ -26,14 +26,14 @@ body {
 }
 #header h1 {
     font-size: 0.85rem;
-    color: #555;
+    color: #666;
     letter-spacing: 3px;
     text-transform: uppercase;
 }
 select {
     background: #1a1a1a;
-    color: #ccc;
-    border: 1px solid #333;
+    color: #e0e0e0;
+    border: 1px solid #3d3d3d;
     padding: 4px 8px;
     font-family: inherit;
     font-size: 0.85rem;
@@ -44,9 +44,9 @@ select:focus { border-color: #555; }
 #status {
     margin-left: auto;
     font-size: 0.75rem;
-    color: #444;
+    color: #505050;
 }
-#status span { color: #666; }
+#status span { color: #777; }
 #canvas-wrap {
     flex: 1;
     display: flex;
@@ -79,7 +79,7 @@ select:focus { border-color: #555; }
 }
 #minimap-label {
     font-size: 0.6rem;
-    color: #333;
+    color: #404040;
     text-transform: uppercase;
     letter-spacing: 1px;
 }
@@ -94,7 +94,7 @@ select:focus { border-color: #555; }
 }
 .ri-section:first-child { padding-top: 0; }
 .ri-heading {
-    color: #444;
+    color: #505050;
     text-transform: uppercase;
     letter-spacing: 1px;
     font-size: 0.6rem;
@@ -103,11 +103,11 @@ select:focus { border-color: #555; }
 .ri-row {
     display: flex;
     justify-content: space-between;
-    color: #555;
+    color: #666;
     padding: 1px 0;
 }
-.ri-row b { color: #888; font-weight: normal; }
-.ri-row span { color: #666; }
+.ri-row b { color: #9d9d9d; font-weight: normal; }
+.ri-row span { color: #777; }
 #map-wrap {
     display: grid;
     grid-template-columns: 200px auto 600px auto;
@@ -123,8 +123,8 @@ select:focus { border-color: #555; }
 }
 .nav-arrow {
     background: #0d0d0d;
-    border: 1px solid #222;
-    color: #383838;
+    border: 1px solid #282828;
+    color: #424242;
     cursor: pointer;
     font-size: 0.8rem;
     padding: 4px 10px;
@@ -132,7 +132,7 @@ select:focus { border-color: #555; }
     font-family: inherit;
     transition: color 0.15s, border-color 0.15s;
 }
-.nav-arrow:hover:not(:disabled) { color: #aaa; border-color: #555; }
+.nav-arrow:hover:not(:disabled) { color: #c5c5c5; border-color: #666; }
 .nav-arrow:disabled { color: #181818; border-color: #141414; cursor: default; }
 #nav-N { grid-column: 3; grid-row: 1; justify-self: stretch; align-self: end;    margin-bottom: 4px; }
 #nav-S { grid-column: 3; grid-row: 3; justify-self: stretch; align-self: start;  margin-top: 4px; }
@@ -153,11 +153,11 @@ select:focus { border-color: #555; }
 }
 #stats-owner {
     font-size: 0.75rem;
-    color: #888;
+    color: #9d9d9d;
     border-bottom: 1px solid #222;
     padding-bottom: 8px;
 }
-#stats-owner b { color: #aaa; }
+#stats-owner b { color: #c5c5c5; }
 .stat-row {
     display: flex;
     flex-direction: column;
@@ -165,13 +165,13 @@ select:focus { border-color: #555; }
 }
 .stat-label {
     font-size: 0.65rem;
-    color: #555;
+    color: #666;
     text-transform: uppercase;
     letter-spacing: 1px;
     display: flex;
     justify-content: space-between;
 }
-.stat-label span { color: #777; }
+.stat-label span { color: #8c8c8c; }
 .stat-bars {
     display: flex;
     gap: 2px;
