@@ -41,6 +41,7 @@
 </div>
 
 <div id="tooltip"></div>
+<div id="body-tooltip"></div>
 <div id="error"></div>
 
 <script>
@@ -114,7 +115,6 @@ let mapStatsCache = {};
 let mapUsersCache = {};
 let minimapMeta = null; // { minX, maxY, CELL, GAP }
 const badgeCache = {}; // username -> Image | 'loading' | 'error'
-let bodyIndexMap = {}; // 'section:bodyKey' -> number
 const VIEW_ZOOM_STEPS = [1, 1.5, 2, 3, 4, 6, 8];
 let viewZoomIdx = 0;
 let viewZoom = 1;
@@ -436,18 +436,6 @@ function getCreepSection(obj) {
     return (ownerId && obj.user === ownerId) ? 'own' : 'hostile';
 }
 
-function buildBodyIndex(ownBodies, hostileBodies, npcBodies) {
-    bodyIndexMap = {};
-    var i = 1;
-    Object.keys(ownBodies).sort(function(a,b){return ownBodies[b]-ownBodies[a];})
-        .forEach(function(k){ bodyIndexMap['own:'+k] = i++; });
-    i = 1;
-    Object.keys(hostileBodies).sort(function(a,b){return hostileBodies[b]-hostileBodies[a];})
-        .forEach(function(k){ bodyIndexMap['hostile:'+k] = i++; });
-    i = 1;
-    Object.keys(npcBodies).sort(function(a,b){return npcBodies[b]-npcBodies[a];})
-        .forEach(function(k){ bodyIndexMap['npc:'+k] = i++; });
-}
 
 async function fetchMapStats() {
     if (!allRooms.length) return;
@@ -519,17 +507,104 @@ const BODY_ABBREV = {
     rangedAttack: 'R', heal: 'H', tough: 'T', claim: 'CL',
 };
 
+// Official Screeps part colours, in the order segments are drawn.
+const PART_SEGMENT_ORDER = ['attack', 'rangedAttack', 'heal', 'work', 'carry', 'claim', 'tough', 'move'];
+const PART_COLOR = {
+    attack:       '#ff2020', // red
+    rangedAttack: '#2266ff', // blue
+    heal:         '#22ff66', // green
+    work:         '#ffee00', // yellow
+    carry:        '#00ddff', // cyan
+    claim:        '#cc22ff', // violet
+    tough:        '#ff8800', // orange
+    move:         '#cccccc', // light grey
+};
+const ABBREV_TO_TYPE = {
+    A: 'attack', R: 'rangedAttack', H: 'heal', W: 'work',
+    C: 'carry', CL: 'claim', T: 'tough', M: 'move',
+};
+
 function bodyKey(body) {
     if (!body || !body.length) return '?';
     return body.map(function(p) { return BODY_ABBREV[p.type] || p.type; }).sort().join(' ');
 }
 
+// Returns [{type, count, color}] in segment order for a body array.
+function bodySegments(body) {
+    const counts = {};
+    for (const p of (body || [])) {
+        const t = p.type || p;
+        counts[t] = (counts[t] || 0) + 1;
+    }
+    return PART_SEGMENT_ORDER.filter(t => counts[t]).map(t => ({ type: t, count: counts[t], color: PART_COLOR[t] }));
+}
+
+// Same as bodySegments but parses from a bodyKey string (e.g. "A A M W").
+function bodySegmentsFromKey(key) {
+    const counts = {};
+    for (const abbr of key.split(' ')) {
+        const t = ABBREV_TO_TYPE[abbr] || abbr;
+        counts[t] = (counts[t] || 0) + 1;
+    }
+    return PART_SEGMENT_ORDER.filter(t => counts[t]).map(t => ({ type: t, count: counts[t], color: PART_COLOR[t] }));
+}
+
+// Draws a segmented-circle sprite onto ctx at (cx, cy) with radius r.
+// Each segment is a body part type, sized by count, in PART_SEGMENT_ORDER.
+function drawBodySprite(ctx, cx, cy, r, body) {
+    const segs = bodySegments(body);
+    if (!segs.length) { ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fillStyle = '#555'; ctx.fill(); return; }
+    const total = segs.reduce((s, p) => s + p.count, 0);
+    let angle = -Math.PI / 2;
+    for (const seg of segs) {
+        const sweep = (seg.count / total) * Math.PI * 2;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        // Guard against a full-circle single segment (arc from/to same point is a no-op)
+        if (sweep >= Math.PI * 2 - 0.0001) {
+            ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        } else {
+            ctx.arc(cx, cy, r, angle, angle + sweep);
+        }
+        ctx.closePath();
+        ctx.fillStyle = seg.color + 'cc';
+        ctx.fill();
+        angle += sweep;
+    }
+}
+
+// Returns an inline SVG of the body sprite for use in the panel legend.
+function bodySpriteSVG(key, size) {
+    const segs = bodySegmentsFromKey(key);
+    const r = size / 2 - 0.5;
+    const cx = size / 2, cy = size / 2;
+    if (!segs.length) return '<svg width="' + size + '" height="' + size + '"><circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="#555"/></svg>';
+    const total = segs.reduce((s, p) => s + p.count, 0);
+    let angle = -Math.PI / 2;
+    let paths = '';
+    for (const seg of segs) {
+        const sweep = (seg.count / total) * Math.PI * 2;
+        if (sweep >= Math.PI * 2 - 0.0001) {
+            paths += '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="' + seg.color + '"/>';
+        } else {
+            const x1 = cx + r * Math.cos(angle),          y1 = cy + r * Math.sin(angle);
+            const x2 = cx + r * Math.cos(angle + sweep),  y2 = cy + r * Math.sin(angle + sweep);
+            const large = sweep > Math.PI ? 1 : 0;
+            paths += '<path d="M' + cx + ',' + cy + ' L' + x1.toFixed(2) + ',' + y1.toFixed(2)
+                   + ' A' + r + ',' + r + ' 0 ' + large + ',1 ' + x2.toFixed(2) + ',' + y2.toFixed(2)
+                   + ' Z" fill="' + seg.color + '"/>';
+        }
+        angle += sweep;
+    }
+    paths += '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="#00000066" stroke-width="0.5"/>';
+    return '<svg width="' + size + '" height="' + size + '" style="vertical-align:middle;flex-shrink:0">' + paths + '</svg>';
+}
+
 function renderBodyGroup(section, bodyMap) {
     return Object.keys(bodyMap).sort(function(a, b) { return bodyMap[b] - bodyMap[a]; })
         .map(function(k) {
-            const idx = bodyIndexMap[section + ':' + k];
-            const idxHtml = idx !== undefined ? '<span class="body-idx">' + idx + '</span>' : '';
-            return '<div class="ri-row">' + idxHtml + '<b>[' + k + ']</b><span>\xd7' + bodyMap[k] + '</span></div>';
+            const sprite = bodySpriteSVG(k, 14);
+            return '<div class="ri-row" data-body-key="' + k + '">' + sprite + '<b>[' + k + ']</b><span>\xd7' + bodyMap[k] + '</span></div>';
         })
         .join('');
 }
@@ -595,8 +670,6 @@ function renderRoomInfo() {
     if (mineralType) resRows += `<div class="ri-row"><b>mineral</b><span>${mineralType}</span></div>`;
     if (resRows) sections.push(`<div class="ri-section"><div class="ri-heading">resources</div>${resRows}</div>`);
 
-    buildBodyIndex(ownBodies, hostileBodies, npcBodies);
-
     // Creeps
     if (Object.keys(ownBodies).length)
         sections.push('<div class="ri-section"><div class="ri-heading">creeps — own</div>' + renderBodyGroup('own', ownBodies) + '</div>');
@@ -636,39 +709,17 @@ function drawObject(obj) {
 
     if (obj.type === 'creep' || obj.type === 'powerCreep') {
         const color = creepColor(obj);
-        const section = getCreepSection(obj);
-        const badge = obj.user ? getUserBadge(obj.user) : null;
+        const r = TILE / 2 - 1;
 
+        // Draw the body-composition sprite — unique per body composition.
+        drawBodySprite(oCtx, cx, cy, r, obj.body);
+
+        // Coloured ring identifies ownership (own=green, hostile=red, npc=orange).
         oCtx.beginPath();
-        oCtx.arc(cx, cy, TILE / 2 - 1, 0, Math.PI * 2);
-        if (badge) {
-            oCtx.save();
-            oCtx.clip();
-            oCtx.drawImage(badge, px + 1, py + 1, TILE - 2, TILE - 2);
-            oCtx.fillStyle = color + '44';
-            oCtx.fill();
-            oCtx.restore();
-        } else {
-            oCtx.fillStyle = color + '99';
-            oCtx.fill();
-        }
-        oCtx.beginPath();
-        oCtx.arc(cx, cy, TILE / 2 - 1, 0, Math.PI * 2);
+        oCtx.arc(cx, cy, r, 0, Math.PI * 2);
         oCtx.strokeStyle = color;
         oCtx.lineWidth = 1.5;
         oCtx.stroke();
-
-        const bKey = bodyKey(obj.body);
-        const idx = bodyIndexMap[section + ':' + bKey];
-        if (idx !== undefined) {
-            oCtx.font = 'bold 7px monospace';
-            oCtx.textAlign = 'center';
-            oCtx.textBaseline = 'middle';
-            oCtx.fillStyle = 'rgba(0,0,0,0.85)';
-            oCtx.fillText(String(idx), cx + 0.5, cy + 0.5);
-            oCtx.fillStyle = '#fff';
-            oCtx.fillText(String(idx), cx, cy);
-        }
         return;
     }
 
@@ -835,6 +886,41 @@ function showError(msg) {
 function clearError() {
     errorEl.style.display = 'none';
 }
+
+// ---- Body-composition tooltip ----
+(function () {
+    const tt = document.getElementById('body-tooltip');
+
+    document.getElementById('room-info').addEventListener('mousemove', function (e) {
+        const row = e.target.closest('[data-body-key]');
+        if (!row) { tt.style.display = 'none'; return; }
+
+        const key = row.dataset.bodyKey;
+        const segs = bodySegmentsFromKey(key);
+        const legend = segs.map(function (s) {
+            return '<div style="display:flex;align-items:center;gap:5px;margin:2px 0">'
+                + '<span style="width:10px;height:10px;border-radius:2px;background:' + s.color + ';flex-shrink:0"></span>'
+                + '<span style="color:#ccc;font:11px monospace">' + s.type + ' \xd7' + s.count + '</span>'
+                + '</div>';
+        }).join('');
+        tt.innerHTML = bodySpriteSVG(key, 72) + '<div style="margin-top:6px">' + legend + '</div>';
+        tt.style.display = 'block';
+
+        // Position to the left of the panel, avoiding viewport edges.
+        const ttw = 88, tth = 88;
+        let tx = e.clientX - ttw - 8;
+        let ty = e.clientY - tth / 2;
+        if (tx < 4) tx = e.clientX + 8;
+        if (ty + tth > window.innerHeight - 4) ty = window.innerHeight - tth - 4;
+        if (ty < 4) ty = 4;
+        tt.style.left = tx + 'px';
+        tt.style.top  = ty + 'px';
+    });
+
+    document.getElementById('room-info').addEventListener('mouseleave', function () {
+        tt.style.display = 'none';
+    });
+}());
 
 // Start
 applyZoom(TILE);
