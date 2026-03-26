@@ -114,6 +114,7 @@ function verifyToken(token, secret) {
 
 module.exports = function(config) {
     const html = fs.readFileSync(path.join(__dirname, '../public/index.html'), 'utf8');
+const css  = fs.readFileSync(path.join(__dirname, '../public/visualizer.css'), 'utf8');
     const secret = crypto.randomBytes(32).toString('hex');
 
     function requireAuth(req, res, next) {
@@ -156,6 +157,11 @@ module.exports = function(config) {
                         res.send(LOGIN_HTML.replace('{{ERROR}}', '<span class="error">Login error. Please try again.</span>'));
                     });
             });
+        });
+
+        app.get('/visualizer/visualizer.css', function(req, res) {
+            res.setHeader('Content-Type', 'text/css');
+            res.send(css);
         });
 
         app.get('/visualizer', requireAuth, function(req, res) {
