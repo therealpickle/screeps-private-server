@@ -61,11 +61,16 @@ button:hover { background: #333; }
 </html>`;
 
 function parseCookies(req) {
-    const raw = req.headers.cookie || '';
-    return Object.fromEntries(raw.split(';').map(c => {
-        const [k, ...v] = c.trim().split('=');
-        return [k, decodeURIComponent(v.join('='))];
-    }).filter(([k]) => k));
+    const result = {};
+    (req.headers.cookie || '').split(';').forEach(function(c) {
+        const idx = c.indexOf('=');
+        if (idx < 0) return;
+        const k = c.slice(0, idx).trim();
+        if (!k) return;
+        try { result[k] = decodeURIComponent(c.slice(idx + 1).trim()); }
+        catch(e) { result[k] = c.slice(idx + 1).trim(); }
+    });
+    return result;
 }
 
 function makeToken(userId, secret) {
