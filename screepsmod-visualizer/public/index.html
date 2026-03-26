@@ -26,6 +26,8 @@
         <button class="nav-arrow" id="nav-S" disabled>▼</button>
         <button class="nav-arrow" id="nav-W" disabled>◀</button>
         <button class="nav-arrow" id="nav-E" disabled>▶</button>
+        <button class="zoom-btn" id="zoom-in"  title="Zoom in">+</button>
+        <button class="zoom-btn" id="zoom-out" title="Zoom out">−</button>
         <div id="layers">
             <canvas id="terrain-canvas" width="600" height="600"></canvas>
             <canvas id="objects-canvas" width="600" height="600"></canvas>
@@ -40,8 +42,9 @@
 <div id="error"></div>
 
 <script>
-const TILE = 12;
+let TILE = 12;
 const SIZE = 50;
+const MIN_TILE = 4, MAX_TILE = 24, ZOOM_STEP = 2;
 
 const terrainCanvas = document.getElementById('terrain-canvas');
 const objectsCanvas = document.getElementById('objects-canvas');
@@ -102,6 +105,7 @@ let currentRoom = null;
 let pollTimer = null;
 let statsTimer = null;
 let objectsCache = [];
+let terrainCache = null;
 let allRooms = [];
 let statsOwnerName = null;
 let mapStatsCache = {};
@@ -159,6 +163,36 @@ function navigateTo(room) {
     selectRoom(room);
 }
 
+// ---- Zoom ----
+function applyZoom(newTile) {
+    TILE = Math.max(MIN_TILE, Math.min(MAX_TILE, newTile));
+    const canvasSize = TILE * SIZE;
+
+    terrainCanvas.width  = objectsCanvas.width  = canvasSize;
+    terrainCanvas.height = objectsCanvas.height = canvasSize;
+
+    const layers = document.getElementById('layers');
+    layers.style.width  = canvasSize + 'px';
+    layers.style.height = canvasSize + 'px';
+
+    const mapWrap = document.getElementById('map-wrap');
+    mapWrap.style.gridTemplateColumns = `200px auto ${canvasSize}px auto`;
+    mapWrap.style.gridTemplateRows    = `auto ${canvasSize}px auto`;
+
+    document.getElementById('zoom-in').disabled  = TILE >= MAX_TILE;
+    document.getElementById('zoom-out').disabled = TILE <= MIN_TILE;
+
+    if (terrainCache) renderTerrain(terrainCache);
+    renderObjects();
+}
+
+document.getElementById('zoom-in').addEventListener('click', () => applyZoom(TILE + ZOOM_STEP));
+document.getElementById('zoom-out').addEventListener('click', () => applyZoom(TILE - ZOOM_STEP));
+document.getElementById('canvas-wrap').addEventListener('wheel', function(e) {
+    e.preventDefault();
+    applyZoom(TILE + (e.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP));
+}, { passive: false });
+
 // ---- Init ----
 async function init() {
     try {
@@ -194,7 +228,7 @@ async function selectRoom(room) {
     roomLabel.textContent = room;
     updateNavArrows(room);
     renderMinimap();
-    oCtx.clearRect(0, 0, 600, 600);
+    oCtx.clearRect(0, 0, objectsCanvas.width, objectsCanvas.height);
     objectsCache = [];
     if (pollTimer) clearInterval(pollTimer);
     if (statsTimer) clearInterval(statsTimer);
@@ -208,10 +242,12 @@ async function selectRoom(room) {
 
 // ---- Terrain ----
 async function loadTerrain(room) {
+    terrainCache = null;
     try {
         const res = await fetch(`/visualizer/api/terrain?room=${room}`);
         const data = await res.json();
         if (data.ok && data.terrain) {
+            terrainCache = data.terrain;
             renderTerrain(data.terrain);
         }
     } catch(e) {
@@ -521,7 +557,7 @@ function renderRoomInfo() {
 
 // ---- Render Objects ----
 function renderObjects() {
-    oCtx.clearRect(0, 0, 600, 600);
+    oCtx.clearRect(0, 0, objectsCanvas.width, objectsCanvas.height);
 
     // Sort: roads first, then structures, then creeps on top
     const sorted = [...objectsCache].sort((a, b) => {
@@ -699,6 +735,7 @@ function clearError() {
 }
 
 // Start
+applyZoom(TILE);
 init();
 </script>
 </body>
