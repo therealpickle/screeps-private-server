@@ -107,6 +107,8 @@ let statsOwnerName = null;
 let mapStatsCache = {};
 let mapUsersCache = {};
 let minimapMeta = null; // { minX, maxY, CELL, GAP }
+const badgeCache = {}; // username -> Image | 'loading' | 'error'
+let bodyIndexMap = {}; // 'section:bodyKey' -> number
 
 // ---- Navigation ----
 const NAV_DIRS = { N: 'N', S: 'S', E: 'E', W: 'W' };
@@ -236,8 +238,8 @@ async function tick() {
         if (!data.ok) return;
         objectsCache = data.objects || [];
         if (data.gameTime !== null) tickEl.textContent = data.gameTime;
-        renderObjects();
         renderRoomInfo();
+        renderObjects();
         clearError();
     } catch(e) {
         showError('Update error: ' + e.message);
@@ -324,6 +326,40 @@ function userColor(userId) {
     return `hsl(${Math.abs(h) % 360}, 65%, 42%)`;
 }
 
+function getUserBadge(userId) {
+    const u = mapUsersCache[userId];
+    if (!u || !u.username) return null;
+    const name = u.username;
+    if (badgeCache[name] instanceof Image) return badgeCache[name];
+    if (badgeCache[name]) return null; // 'loading' or 'error'
+    badgeCache[name] = 'loading';
+    const img = new Image();
+    img.onload = function() { badgeCache[name] = img; if (currentRoom) renderObjects(); };
+    img.onerror = function() { badgeCache[name] = 'error'; };
+    img.src = '/api/user/badge-svg?username=' + encodeURIComponent(name);
+    return null;
+}
+
+function getCreepSection(obj) {
+    if (!obj.user) return 'npc';
+    const roomStat = mapStatsCache[currentRoom];
+    const ownerId = roomStat && roomStat.own ? roomStat.own.user : null;
+    return (ownerId && obj.user === ownerId) ? 'own' : 'hostile';
+}
+
+function buildBodyIndex(ownBodies, hostileBodies, npcBodies) {
+    bodyIndexMap = {};
+    var i = 1;
+    Object.keys(ownBodies).sort(function(a,b){return ownBodies[b]-ownBodies[a];})
+        .forEach(function(k){ bodyIndexMap['own:'+k] = i++; });
+    i = 1;
+    Object.keys(hostileBodies).sort(function(a,b){return hostileBodies[b]-hostileBodies[a];})
+        .forEach(function(k){ bodyIndexMap['hostile:'+k] = i++; });
+    i = 1;
+    Object.keys(npcBodies).sort(function(a,b){return npcBodies[b]-npcBodies[a];})
+        .forEach(function(k){ bodyIndexMap['npc:'+k] = i++; });
+}
+
 async function fetchMapStats() {
     if (!allRooms.length) return;
     try {
@@ -399,9 +435,13 @@ function bodyKey(body) {
     return body.map(function(p) { return BODY_ABBREV[p.type] || p.type; }).sort().join(' ');
 }
 
-function renderBodyGroup(bodyMap) {
+function renderBodyGroup(section, bodyMap) {
     return Object.keys(bodyMap).sort(function(a, b) { return bodyMap[b] - bodyMap[a]; })
-        .map(function(k) { return '<div class="ri-row"><b>[' + k + ']</b><span>\xd7' + bodyMap[k] + '</span></div>'; })
+        .map(function(k) {
+            const idx = bodyIndexMap[section + ':' + k];
+            const idxHtml = idx !== undefined ? '<span class="body-idx">' + idx + '</span>' : '';
+            return '<div class="ri-row">' + idxHtml + '<b>[' + k + ']</b><span>\xd7' + bodyMap[k] + '</span></div>';
+        })
         .join('');
 }
 
@@ -466,13 +506,15 @@ function renderRoomInfo() {
     if (mineralType) resRows += `<div class="ri-row"><b>mineral</b><span>${mineralType}</span></div>`;
     if (resRows) sections.push(`<div class="ri-section"><div class="ri-heading">resources</div>${resRows}</div>`);
 
+    buildBodyIndex(ownBodies, hostileBodies, npcBodies);
+
     // Creeps
     if (Object.keys(ownBodies).length)
-        sections.push('<div class="ri-section"><div class="ri-heading">creeps — own</div>' + renderBodyGroup(ownBodies) + '</div>');
+        sections.push('<div class="ri-section"><div class="ri-heading">creeps — own</div>' + renderBodyGroup('own', ownBodies) + '</div>');
     if (Object.keys(hostileBodies).length)
-        sections.push('<div class="ri-section"><div class="ri-heading" style="color:#884444">creeps — hostile</div>' + renderBodyGroup(hostileBodies) + '</div>');
+        sections.push('<div class="ri-section"><div class="ri-heading" style="color:#884444">creeps — hostile</div>' + renderBodyGroup('hostile', hostileBodies) + '</div>');
     if (Object.keys(npcBodies).length)
-        sections.push('<div class="ri-section"><div class="ri-heading">creeps — npc</div>' + renderBodyGroup(npcBodies) + '</div>');
+        sections.push('<div class="ri-section"><div class="ri-heading">creeps — npc</div>' + renderBodyGroup('npc', npcBodies) + '</div>');
 
     el.innerHTML = sections.join('');
 }
@@ -502,13 +544,39 @@ function drawObject(obj) {
 
     if (obj.type === 'creep' || obj.type === 'powerCreep') {
         const color = creepColor(obj);
+        const section = getCreepSection(obj);
+        const badge = obj.user ? getUserBadge(obj.user) : null;
+
         oCtx.beginPath();
         oCtx.arc(cx, cy, TILE / 2 - 1, 0, Math.PI * 2);
-        oCtx.fillStyle = color + '99';
-        oCtx.fill();
+        if (badge) {
+            oCtx.save();
+            oCtx.clip();
+            oCtx.drawImage(badge, px + 1, py + 1, TILE - 2, TILE - 2);
+            oCtx.fillStyle = color + '44';
+            oCtx.fill();
+            oCtx.restore();
+        } else {
+            oCtx.fillStyle = color + '99';
+            oCtx.fill();
+        }
+        oCtx.beginPath();
+        oCtx.arc(cx, cy, TILE / 2 - 1, 0, Math.PI * 2);
         oCtx.strokeStyle = color;
         oCtx.lineWidth = 1.5;
         oCtx.stroke();
+
+        const bKey = bodyKey(obj.body);
+        const idx = bodyIndexMap[section + ':' + bKey];
+        if (idx !== undefined) {
+            oCtx.font = 'bold 7px monospace';
+            oCtx.textAlign = 'center';
+            oCtx.textBaseline = 'middle';
+            oCtx.fillStyle = 'rgba(0,0,0,0.85)';
+            oCtx.fillText(String(idx), cx + 0.5, cy + 0.5);
+            oCtx.fillStyle = '#fff';
+            oCtx.fillText(String(idx), cx, cy);
+        }
         return;
     }
 
