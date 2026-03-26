@@ -94,7 +94,7 @@ module.exports = function(config) {
     const html = fs.readFileSync(path.join(__dirname, '../public/index.html'), 'utf8');
     const secret = crypto.randomBytes(32).toString('hex');
 
-    async function requireAuth(req, res, next) {
+    function requireAuth(req, res, next) {
         if (!config.auth) return next();
         const cookies = parseCookies(req);
         const token = cookies['viz_token'];
