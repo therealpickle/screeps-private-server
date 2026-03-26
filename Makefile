@@ -87,7 +87,7 @@ setup-staging: _verify_user start
 	@echo ""
 	@printf 'servers:\n  staging:\n    host: $(STAGING_HOST)\n    port: 21025\n    http: true\n    username: $(STAGING_USER)\n    password: $(STAGING_PASS)\n    branch: default\n'
 	@echo ""
-	@echo "Deploy with: make deploy-staging  (from starter/, or from your project.)"
+	@echo "Deploy with: make deploy-staging  (from player_starter_pack/, or from your project.)"
 
 # Stops the server and removes containers, volumes, and images
 teardown-staging:

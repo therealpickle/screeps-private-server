@@ -65,7 +65,7 @@ Additionally, I've made a few shortcuts to easy the setups using Makefiles, becu
 #### 1. Copy the starter files
 
 ```bash
-cp -r /path/to/screeps-private-server/starter/{Makefile,package.json,.gitignore,default} .
+cp -r /path/to/screeps-private-server/player_starter_pack/{Makefile,package.json,.gitignore,default} .
 ```
 
 #### 2. Install dependencies

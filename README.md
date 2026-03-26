@@ -4,7 +4,7 @@
 
 # Screeps Private Server
 
-**New player?** See the [Player Setup Guide](starter/README.md).
+**New player?** See the [Player Setup Guide](player_starter_pack/README.md).
 
 ## Installation
 
