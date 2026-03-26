@@ -113,6 +113,11 @@ let mapUsersCache = {};
 let minimapMeta = null; // { minX, maxY, CELL, GAP }
 const badgeCache = {}; // username -> Image | 'loading' | 'error'
 let bodyIndexMap = {}; // 'section:bodyKey' -> number
+const VIEW_ZOOM_STEPS = [1, 1.5, 2, 3, 4, 6, 8];
+let viewZoomIdx = 0;
+let viewZoom = 1;
+let viewOffsetX = 0, viewOffsetY = 0;
+let isPanning = false, panStartX = 0, panStartY = 0, panBaseX = 0, panBaseY = 0;
 
 // ---- Navigation ----
 const NAV_DIRS = { N: 'N', S: 'S', E: 'E', W: 'W' };
@@ -188,9 +193,39 @@ function applyZoom(newTile) {
 
 document.getElementById('zoom-in').addEventListener('click', () => applyZoom(TILE + ZOOM_STEP));
 document.getElementById('zoom-out').addEventListener('click', () => applyZoom(TILE - ZOOM_STEP));
-document.getElementById('canvas-wrap').addEventListener('wheel', function(e) {
+
+// ---- View Zoom (viewport, mouse wheel) ----
+function clampViewOffset() {
+    const visible = SIZE / viewZoom;
+    viewOffsetX = Math.max(0, Math.min(SIZE - visible, viewOffsetX));
+    viewOffsetY = Math.max(0, Math.min(SIZE - visible, viewOffsetY));
+}
+
+function applyViewZoom(newIdx, pivotMx, pivotMy) {
+    // pivotMx/My are in canvas-native pixels; zoom toward that point
+    const oldZoom = viewZoom;
+    viewZoomIdx = Math.max(0, Math.min(VIEW_ZOOM_STEPS.length - 1, newIdx));
+    viewZoom = VIEW_ZOOM_STEPS[viewZoomIdx];
+
+    if (pivotMx !== undefined) {
+        const tileX = pivotMx / (TILE * oldZoom) + viewOffsetX;
+        const tileY = pivotMy / (TILE * oldZoom) + viewOffsetY;
+        viewOffsetX = tileX - pivotMx / (TILE * viewZoom);
+        viewOffsetY = tileY - pivotMy / (TILE * viewZoom);
+    }
+    clampViewOffset();
+    objectsCanvas.style.cursor = viewZoom > 1 ? 'grab' : 'crosshair';
+    if (terrainCache) renderTerrain(terrainCache);
+    renderObjects();
+}
+
+objectsCanvas.addEventListener('wheel', function(e) {
     e.preventDefault();
-    applyZoom(TILE + (e.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP));
+    const rect = objectsCanvas.getBoundingClientRect();
+    const scale = objectsCanvas.width / rect.width;
+    const mx = (e.clientX - rect.left) * scale;
+    const my = (e.clientY - rect.top)  * scale;
+    applyViewZoom(viewZoomIdx + (e.deltaY < 0 ? 1 : -1), mx, my);
 }, { passive: false });
 
 // ---- Init ----
@@ -230,6 +265,8 @@ async function selectRoom(room) {
     renderMinimap();
     oCtx.clearRect(0, 0, objectsCanvas.width, objectsCanvas.height);
     objectsCache = [];
+    viewZoomIdx = 0; viewZoom = 1; viewOffsetX = 0; viewOffsetY = 0;
+    objectsCanvas.style.cursor = 'crosshair';
     if (pollTimer) clearInterval(pollTimer);
     if (statsTimer) clearInterval(statsTimer);
 
@@ -256,6 +293,10 @@ async function loadTerrain(room) {
 }
 
 function renderTerrain(encoded) {
+    tCtx.clearRect(0, 0, terrainCanvas.width, terrainCanvas.height);
+    tCtx.save();
+    tCtx.scale(viewZoom, viewZoom);
+    tCtx.translate(-viewOffsetX * TILE, -viewOffsetY * TILE);
     for (let y = 0; y < SIZE; y++) {
         for (let x = 0; x < SIZE; x++) {
             const t = parseInt(encoded[y * SIZE + x]) || 0;
@@ -263,6 +304,7 @@ function renderTerrain(encoded) {
             tCtx.fillRect(x * TILE, y * TILE, TILE, TILE);
         }
     }
+    tCtx.restore();
 }
 
 // ---- Objects ----
@@ -559,7 +601,6 @@ function renderRoomInfo() {
 function renderObjects() {
     oCtx.clearRect(0, 0, objectsCanvas.width, objectsCanvas.height);
 
-    // Sort: roads first, then structures, then creeps on top
     const sorted = [...objectsCache].sort((a, b) => {
         const order = { road: 0, constructionSite: 1, rampart: 2 };
         const ao = order[a.type] !== undefined ? order[a.type] : 3;
@@ -567,9 +608,13 @@ function renderObjects() {
         return ao - bo;
     });
 
+    oCtx.save();
+    oCtx.scale(viewZoom, viewZoom);
+    oCtx.translate(-viewOffsetX * TILE, -viewOffsetY * TILE);
     for (const obj of sorted) {
         drawObject(obj);
     }
+    oCtx.restore();
 }
 
 function drawObject(obj) {
@@ -691,11 +736,38 @@ function lighten(hex, amount) {
     return `rgb(${r},${g},${b})`;
 }
 
-// ---- Tooltip ----
+// ---- Tooltip + Pan ----
+objectsCanvas.addEventListener('mousedown', function(e) {
+    if (viewZoom > 1) {
+        isPanning = true;
+        panStartX = e.clientX; panStartY = e.clientY;
+        panBaseX = viewOffsetX; panBaseY = viewOffsetY;
+        objectsCanvas.style.cursor = 'grabbing';
+    }
+});
+objectsCanvas.addEventListener('mouseup',    function() { isPanning = false; objectsCanvas.style.cursor = viewZoom > 1 ? 'grab' : 'crosshair'; });
+objectsCanvas.addEventListener('mouseleave', function() { isPanning = false; tooltip.style.display = 'none'; });
+
 objectsCanvas.addEventListener('mousemove', function(e) {
     const rect = objectsCanvas.getBoundingClientRect();
-    const tx = Math.floor((e.clientX - rect.left) / TILE);
-    const ty = Math.floor((e.clientY - rect.top) / TILE);
+    const scale = objectsCanvas.width / rect.width;
+
+    if (isPanning) {
+        const dx = (e.clientX - panStartX) * scale / (TILE * viewZoom);
+        const dy = (e.clientY - panStartY) * scale / (TILE * viewZoom);
+        viewOffsetX = panBaseX - dx;
+        viewOffsetY = panBaseY - dy;
+        clampViewOffset();
+        if (terrainCache) renderTerrain(terrainCache);
+        renderObjects();
+        tooltip.style.display = 'none';
+        return;
+    }
+
+    const mx = (e.clientX - rect.left) * scale;
+    const my = (e.clientY - rect.top)  * scale;
+    const tx = Math.floor(mx / (TILE * viewZoom) + viewOffsetX);
+    const ty = Math.floor(my / (TILE * viewZoom) + viewOffsetY);
     const objs = objectsCache.filter(o => o.x === tx && o.y === ty);
 
     if (objs.length) {
@@ -707,7 +779,6 @@ objectsCanvas.addEventListener('mousemove', function(e) {
         tooltip.style.display = 'none';
     }
 });
-objectsCanvas.addEventListener('mouseleave', () => tooltip.style.display = 'none');
 
 function tooltipHtml(obj) {
     const lines = [`<b>${obj.type}</b>`];
