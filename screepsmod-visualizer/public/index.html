@@ -274,7 +274,8 @@ function renderStats(data) {
         return;
     }
 
-    statsOwner.innerHTML = `<b>${data.owner.username}</b>`;
+    const badgeUrl = '/api/user/badge-svg?username=' + encodeURIComponent(data.owner.username);
+    statsOwner.innerHTML = `<img class="owner-badge" src="${badgeUrl}" width="32" height="32" onerror="this.style.display='none'"><b>${data.owner.username}</b>`;
 
     for (const m of STAT_META) {
         const values = (data.stats[m.key] || []).map(b => b.value);
