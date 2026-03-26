@@ -134,28 +134,20 @@ module.exports = function(config) {
     const sseClients = [];
     const msgBuffer = [];
     const MAX_BUFFER = 200;
-    const userNameCache = {};
 
     function pushConsoleMessage(msg) {
         msgBuffer.push(msg);
         if (msgBuffer.length > MAX_BUFFER) msgBuffer.shift();
         const payload = 'data: ' + JSON.stringify(msg) + '\n\n';
         for (let i = sseClients.length - 1; i >= 0; i--) {
+            const client = sseClients[i];
+            if (client.userId !== msg.userId) continue;
             try {
-                sseClients[i].write(payload);
+                client.res.write(payload);
             } catch(e) {
                 sseClients.splice(i, 1);
             }
         }
-    }
-
-    async function refreshUserCache() {
-        try {
-            const users = await config.common.storage.db['users'].find({});
-            for (const u of users) {
-                if (u._id && u.username) userNameCache[u._id] = u.username;
-            }
-        } catch(e) {}
     }
 
     // Subscribe to per-tick runtime data which includes console output.
@@ -175,19 +167,14 @@ module.exports = function(config) {
                 const errors = (msg.messages && msg.messages.error) || [];
                 if (!logs.length && !errors.length) return;
                 const userId   = msg.userId;
-                const username = userNameCache[userId] || userId;
                 const ts = Date.now();
-                for (const line of logs)   pushConsoleMessage({ ts, username, text: line, type: 'log' });
-                for (const line of errors) pushConsoleMessage({ ts, username, text: line, type: 'error' });
+                for (const line of logs)   pushConsoleMessage({ ts, userId, text: line, type: 'log' });
+                for (const line of errors) pushConsoleMessage({ ts, userId, text: line, type: 'error' });
             } catch(e) {}
         });
     }
 
-    setTimeout(function() {
-        refreshUserCache();
-        setInterval(refreshUserCache, 60000);
-        setupConsolePubSub();
-    }, 2000);
+    setTimeout(setupConsolePubSub, 2000);
 
     function requireAuth(req, res, next) {
         if (!config.auth) return next();
@@ -200,6 +187,7 @@ module.exports = function(config) {
             }
             return res.redirect('/visualizer/login?next=' + encodeURIComponent(req.url));
         }
+        req.userId = userId;
         next();
     }
 
@@ -248,7 +236,7 @@ module.exports = function(config) {
             res.send(fs.readFileSync(path.join(publicDir, 'index.html'), 'utf8'));
         });
 
-app.get('/visualizer/api/console-stream', requireAuth, function(req, res) {
+app.get('/visualizer/api/console-log', requireAuth, function(req, res) {
             req.socket.setTimeout(0);
             req.socket.setNoDelay(true);
             res.setHeader('Content-Type', 'text/event-stream');
@@ -258,15 +246,17 @@ app.get('/visualizer/api/console-stream', requireAuth, function(req, res) {
             res.flushHeaders();
             res.write(': ok\n\n'); // immediate write to unblock nginx buffering
             for (const msg of msgBuffer) {
-                res.write('data: ' + JSON.stringify(msg) + '\n\n');
+                if (msg.userId === req.userId) {
+                    res.write('data: ' + JSON.stringify(msg) + '\n\n');
+                }
             }
-            sseClients.push(res);
+            sseClients.push({ res, userId: req.userId });
             const heartbeat = setInterval(function() {
                 try { res.write(': heartbeat\n\n'); } catch(e) {}
             }, 15000);
             req.on('close', function() {
                 clearInterval(heartbeat);
-                const i = sseClients.indexOf(res);
+                const i = sseClients.findIndex(c => c.res === res);
                 if (i >= 0) sseClients.splice(i, 1);
             });
         });

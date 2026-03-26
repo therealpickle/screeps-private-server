@@ -954,13 +954,10 @@ function clearError() {
         const t = document.createElement('span');
         t.className = 'con-ts';
         t.textContent = fmtTime(msg.ts);
-        const u = document.createElement('span');
-        u.className = 'con-user';
-        u.textContent = msg.username;
         const m = document.createElement('span');
         m.className = 'con-msg';
         m.textContent = msg.text;
-        row.append(t, u, m);
+        row.append(t, m);
         consoleBody.appendChild(row);
         // Trim to 500 lines
         while (consoleBody.children.length > 500) consoleBody.removeChild(consoleBody.firstChild);
@@ -970,7 +967,7 @@ function clearError() {
     function connect() {
         if (es) es.close();
         consoleStatus.textContent = 'connecting...';
-        es = new EventSource('/visualizer/api/console-stream');
+        es = new EventSource('/visualizer/api/console-log');
         es.onopen = function() { consoleStatus.textContent = ''; };
         es.onmessage = function(e) {
             try { appendLine(JSON.parse(e.data)); } catch(err) {}

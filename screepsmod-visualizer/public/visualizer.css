@@ -301,7 +301,6 @@ select:focus { border-color: #555; }
     white-space: pre-wrap;
     word-break: break-all;
 }
-.con-ts   { color: #333; flex-shrink: 0; }
-.con-user { color: #556b55; flex-shrink: 0; min-width: 80px; }
-.con-msg  { color: #999; }
+.con-ts  { color: #333; flex-shrink: 0; }
+.con-msg { color: #999; }
 .con-err .con-msg { color: #cc6666; }
