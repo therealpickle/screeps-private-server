@@ -3,8 +3,6 @@
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
-const bodyParser = require('body-parser');
-const parseBody = bodyParser.urlencoded({ extended: false });
 
 const LOGIN_HTML = `<!DOCTYPE html>
 <html lang="en">
@@ -61,6 +59,23 @@ button:hover { background: #333; }
 </form>
 </body>
 </html>`;
+
+function parseFormBody(req, callback) {
+    let body = '';
+    req.on('data', function(chunk) { body += chunk.toString(); });
+    req.on('end', function() {
+        const params = {};
+        body.split('&').forEach(function(pair) {
+            const idx = pair.indexOf('=');
+            if (idx < 0) return;
+            try {
+                params[decodeURIComponent(pair.slice(0, idx).replace(/\+/g, ' '))] =
+                    decodeURIComponent(pair.slice(idx + 1).replace(/\+/g, ' '));
+            } catch(e) {}
+        });
+        callback(params);
+    });
+}
 
 function parseCookies(req) {
     const result = {};
@@ -121,22 +136,26 @@ module.exports = function(config) {
             res.send(LOGIN_HTML.replace('{{ERROR}}', ''));
         });
 
-        app.post('/visualizer/login', parseBody, async function(req, res) {
-            const { username, password } = req.body || {};
-            if (!username || !password || !config.auth) {
-                return res.status(400).send(LOGIN_HTML.replace('{{ERROR}}', '<span class="error">Username and password required.</span>'));
-            }
-            try {
-                const user = await config.auth.authUser(username, password);
-                if (!user) {
-                    return res.send(LOGIN_HTML.replace('{{ERROR}}', '<span class="error">Invalid username or password.</span>'));
+        app.post('/visualizer/login', function(req, res) {
+            parseFormBody(req, function(body) {
+                const username = body.username;
+                const password = body.password;
+                if (!username || !password || !config.auth) {
+                    return res.status(400).send(LOGIN_HTML.replace('{{ERROR}}', '<span class="error">Username and password required.</span>'));
                 }
-                const token = makeToken(user._id, secret);
-                res.setHeader('Set-Cookie', `viz_token=${encodeURIComponent(token)}; Path=/visualizer; HttpOnly; SameSite=Lax`);
-                res.redirect('/visualizer');
-            } catch(e) {
-                res.send(LOGIN_HTML.replace('{{ERROR}}', '<span class="error">Login error. Please try again.</span>'));
-            }
+                config.auth.authUser(username, password)
+                    .then(function(user) {
+                        if (!user) {
+                            return res.send(LOGIN_HTML.replace('{{ERROR}}', '<span class="error">Invalid username or password.</span>'));
+                        }
+                        const token = makeToken(user._id, secret);
+                        res.setHeader('Set-Cookie', 'viz_token=' + encodeURIComponent(token) + '; Path=/visualizer; HttpOnly; SameSite=Lax');
+                        res.redirect('/visualizer');
+                    })
+                    .catch(function() {
+                        res.send(LOGIN_HTML.replace('{{ERROR}}', '<span class="error">Login error. Please try again.</span>'));
+                    });
+            });
         });
 
         app.get('/visualizer', requireAuth, function(req, res) {
