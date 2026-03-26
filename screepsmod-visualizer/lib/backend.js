@@ -3,6 +3,8 @@
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const bodyParser = require('body-parser');
+const parseBody = bodyParser.urlencoded({ extended: false });
 
 const LOGIN_HTML = `<!DOCTYPE html>
 <html lang="en">
@@ -119,7 +121,7 @@ module.exports = function(config) {
             res.send(LOGIN_HTML.replace('{{ERROR}}', ''));
         });
 
-        app.post('/visualizer/login', async function(req, res) {
+        app.post('/visualizer/login', parseBody, async function(req, res) {
             const { username, password } = req.body || {};
             if (!username || !password || !config.auth) {
                 return res.status(400).send(LOGIN_HTML.replace('{{ERROR}}', '<span class="error">Username and password required.</span>'));
