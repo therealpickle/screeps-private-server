@@ -1,5 +1,9 @@
 # Screeps Server - Setup Notes
 
+## Working with Claude
+
+- Always ask before committing or pushing — never do it automatically after making changes.
+
 ## What works
 
 Use the [Jomik screeps-server](https://github.com/Jomik/screeps-server) Docker image. This is the only reliable approach on modern Debian/Ubuntu — the official `npm install -g screeps` method requires Python 2 which is no longer available in Debian repos.
