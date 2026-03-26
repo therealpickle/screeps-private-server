@@ -138,20 +138,16 @@ select:focus { border-color: #555; }
     border: 1px solid #282828;
     color: #424242;
     cursor: pointer;
-    font-size: 1rem;
-    width: 28px;
-    height: 28px;
+    font-size: 0.8rem;
+    padding: 4px 10px;
+    line-height: 1.4;
     font-family: inherit;
-    line-height: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     transition: color 0.15s, border-color 0.15s;
 }
 .zoom-btn:hover:not(:disabled) { color: #c5c5c5; border-color: #666; }
 .zoom-btn:disabled { color: #181818; border-color: #141414; cursor: default; }
-#zoom-in  { grid-column: 4; grid-row: 1; justify-self: start; align-self: end;   margin-left: 4px; margin-bottom: 4px; }
-#zoom-out { grid-column: 4; grid-row: 3; justify-self: start; align-self: start; margin-left: 4px; margin-top: 4px; }
+#zoom-in  { grid-column: 2; grid-row: 1; justify-self: end; align-self: end;   margin-right: 4px; margin-bottom: 4px; }
+#zoom-out { grid-column: 2; grid-row: 3; justify-self: end; align-self: start; margin-right: 4px; margin-top: 4px; }
 #layers canvas {
     position: absolute;
     top: 0; left: 0;
