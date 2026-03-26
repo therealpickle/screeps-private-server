@@ -131,7 +131,7 @@ select:focus { border-color: #555; }
 .nav-arrow:disabled { color: #181818; border-color: #141414; cursor: default; }
 #nav-N { grid-column: 3; grid-row: 1; justify-self: stretch; align-self: end;    margin-bottom: 4px; }
 #nav-S { grid-column: 3; grid-row: 3; justify-self: stretch; align-self: start;  margin-top: 4px; }
-#nav-W { grid-column: 2; grid-row: 2; justify-self: end;     align-self: stretch; margin-right: 4px; }
+#nav-W { grid-column: 2; grid-row: 2; justify-self: stretch; align-self: stretch; margin-right: 4px; }
 #nav-E { grid-column: 4; grid-row: 2; justify-self: start;   align-self: stretch; margin-left: 4px; }
 .zoom-btn {
     background: #0d0d0d;
@@ -146,8 +146,8 @@ select:focus { border-color: #555; }
 }
 .zoom-btn:hover:not(:disabled) { color: #c5c5c5; border-color: #666; }
 .zoom-btn:disabled { color: #181818; border-color: #141414; cursor: default; }
-#zoom-in  { grid-column: 2; grid-row: 1; justify-self: end; align-self: end;   margin-right: 4px; margin-bottom: 4px; }
-#zoom-out { grid-column: 2; grid-row: 3; justify-self: end; align-self: start; margin-right: 4px; margin-top: 4px; }
+#zoom-in  { grid-column: 2; grid-row: 1; justify-self: stretch; align-self: end;   margin-right: 4px; margin-bottom: 4px; }
+#zoom-out { grid-column: 2; grid-row: 3; justify-self: stretch; align-self: start; margin-right: 4px; margin-top: 4px; }
 #layers canvas {
     position: absolute;
     top: 0; left: 0;
