@@ -44,6 +44,16 @@
 <div id="body-tooltip"></div>
 <div id="error"></div>
 
+<div id="console-panel">
+    <div id="console-header">
+        <span id="console-label">console</span>
+        <span id="console-status"></span>
+        <button id="console-clear">clear</button>
+        <button id="console-toggle">▼</button>
+    </div>
+    <div id="console-body"></div>
+</div>
+
 <script>
 let TILE = 12;
 const SIZE = 50;
@@ -64,10 +74,10 @@ const statsOwner = document.getElementById('stats-owner');
 // ---- Colors ----
 
 const TERRAIN_COLOR = [
-    '#141414',  // 0: plain
-    '#2b2b2b',  // 1: wall
+    '#2b2b2b',  // 0: plain
+    '#141414',  // 1: wall
     '#0d1a0d',  // 2: swamp
-    '#2b2b2b',  // 3: wall+swamp (treat as wall)
+    '#141414',  // 3: wall+swamp (treat as wall)
 ];
 
 const STRUCT = {
@@ -920,6 +930,69 @@ function clearError() {
     document.getElementById('room-info').addEventListener('mouseleave', function () {
         tt.style.display = 'none';
     });
+}());
+
+// ---- Console Panel ----
+(function() {
+    const consoleBody   = document.getElementById('console-body');
+    const consoleClear  = document.getElementById('console-clear');
+    const consoleToggle = document.getElementById('console-toggle');
+    const consoleStatus = document.getElementById('console-status');
+    const consolePanel  = document.getElementById('console-panel');
+    let collapsed = false;
+    let es = null;
+
+    function fmtTime(ts) {
+        const d = new Date(ts);
+        return d.toTimeString().slice(0, 8);
+    }
+
+    function appendLine(msg) {
+        const atBottom = consoleBody.scrollHeight - consoleBody.scrollTop <= consoleBody.clientHeight + 4;
+        const row = document.createElement('div');
+        row.className = 'con-line' + (msg.type === 'error' ? ' con-err' : '');
+        const t = document.createElement('span');
+        t.className = 'con-ts';
+        t.textContent = fmtTime(msg.ts);
+        const u = document.createElement('span');
+        u.className = 'con-user';
+        u.textContent = msg.username;
+        const m = document.createElement('span');
+        m.className = 'con-msg';
+        m.textContent = msg.text;
+        row.append(t, u, m);
+        consoleBody.appendChild(row);
+        // Trim to 500 lines
+        while (consoleBody.children.length > 500) consoleBody.removeChild(consoleBody.firstChild);
+        if (atBottom) consoleBody.scrollTop = consoleBody.scrollHeight;
+    }
+
+    function connect() {
+        if (es) es.close();
+        consoleStatus.textContent = 'connecting...';
+        es = new EventSource('/visualizer/api/console-stream');
+        es.onopen = function() { consoleStatus.textContent = ''; };
+        es.onmessage = function(e) {
+            try { appendLine(JSON.parse(e.data)); } catch(err) {}
+        };
+        es.onerror = function() {
+            consoleStatus.textContent = 'disconnected';
+            es.close();
+            setTimeout(connect, 5000);
+        };
+    }
+
+    consoleClear.addEventListener('click', function() {
+        consoleBody.innerHTML = '';
+    });
+
+    consoleToggle.addEventListener('click', function() {
+        collapsed = !collapsed;
+        consolePanel.classList.toggle('collapsed', collapsed);
+        consoleToggle.textContent = collapsed ? '▲' : '▼';
+    });
+
+    connect();
 }());
 
 // Start

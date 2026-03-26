@@ -92,7 +92,7 @@ function parseCookies(req) {
 }
 
 function makeToken(userId, secret) {
-    const expires = Date.now() + 7 * 24 * 60 * 60 * 1000; // 7 days
+    const expires = Date.now() + 12 * 60 * 60 * 1000; // 12 hours
     const payload = `${userId}:${expires}`;
     const sig = crypto.createHmac('sha256', secret).update(payload).digest('hex');
     return Buffer.from(`${payload}:${sig}`).toString('base64');
@@ -115,13 +115,86 @@ function verifyToken(token, secret) {
 
 module.exports = function(config) {
     const publicDir = path.join(__dirname, '../public');
-    const secret = crypto.randomBytes(32).toString('hex');
+
+    // Secret is persisted in Redis so tokens survive restarts without depending on STEAM_KEY.
+    let secret = crypto.randomBytes(32).toString('hex'); // fallback until loaded
+    const SECRET_KEY = 'visualizer:auth-secret';
+    setTimeout(function() {
+        const env = config.common.storage.env;
+        env.get(SECRET_KEY).then(function(stored) {
+            if (stored) {
+                secret = stored;
+            } else {
+                env.set(SECRET_KEY, secret);
+            }
+        }).catch(function() {});
+    }, 1000);
+
+    // ---- Console streaming ----
+    const sseClients = [];
+    const msgBuffer = [];
+    const MAX_BUFFER = 200;
+    const userNameCache = {};
+
+    function pushConsoleMessage(msg) {
+        msgBuffer.push(msg);
+        if (msgBuffer.length > MAX_BUFFER) msgBuffer.shift();
+        const payload = 'data: ' + JSON.stringify(msg) + '\n\n';
+        for (let i = sseClients.length - 1; i >= 0; i--) {
+            try {
+                sseClients[i].write(payload);
+            } catch(e) {
+                sseClients.splice(i, 1);
+            }
+        }
+    }
+
+    async function refreshUserCache() {
+        try {
+            const users = await config.common.storage.db['users'].find({});
+            for (const u of users) {
+                if (u._id && u.username) userNameCache[u._id] = u.username;
+            }
+        } catch(e) {}
+    }
+
+    // Subscribe to per-tick runtime data which includes console output.
+    // The channel name used by screeps-backend-local is 'runtime-user-data'.
+    function setupConsolePubSub() {
+        if (!config.common || !config.common.storage || !config.common.storage.pubsub) {
+            console.log('[viz] pubsub not available');
+            return;
+        }
+        const pubsub = config.common.storage.pubsub;
+
+        // Console output is published on per-user channels: user:USER_ID/console
+        pubsub.subscribe('user:*/console', function(data) {
+            try {
+                const msg = typeof data === 'string' ? JSON.parse(data) : data;
+                const logs   = (msg.messages && msg.messages.log)   || [];
+                const errors = (msg.messages && msg.messages.error) || [];
+                if (!logs.length && !errors.length) return;
+                const userId   = msg.userId;
+                const username = userNameCache[userId] || userId;
+                const ts = Date.now();
+                for (const line of logs)   pushConsoleMessage({ ts, username, text: line, type: 'log' });
+                for (const line of errors) pushConsoleMessage({ ts, username, text: line, type: 'error' });
+            } catch(e) {}
+        });
+    }
+
+    setTimeout(function() {
+        refreshUserCache();
+        setInterval(refreshUserCache, 60000);
+        setupConsolePubSub();
+    }, 2000);
 
     function requireAuth(req, res, next) {
         if (!config.auth) return next();
         const cookies = parseCookies(req);
         const token = cookies['viz_token'];
-        if (!token || !verifyToken(token, secret)) {
+        const userId = token && verifyToken(token, secret);
+        if (!userId) {
             if (req.path.startsWith('/visualizer/api/')) {
                 return res.status(401).json({ ok: 0, error: 'Unauthorized' });
             }
@@ -173,6 +246,29 @@ module.exports = function(config) {
         app.get('/visualizer', requireAuth, function(req, res) {
             res.setHeader('Content-Type', 'text/html');
             res.send(fs.readFileSync(path.join(publicDir, 'index.html'), 'utf8'));
+        });
+
+app.get('/visualizer/api/console-stream', requireAuth, function(req, res) {
+            req.socket.setTimeout(0);
+            req.socket.setNoDelay(true);
+            res.setHeader('Content-Type', 'text/event-stream');
+            res.setHeader('Cache-Control', 'no-cache');
+            res.setHeader('Connection', 'keep-alive');
+            res.setHeader('X-Accel-Buffering', 'no'); // disable nginx proxy buffering
+            res.flushHeaders();
+            res.write(': ok\n\n'); // immediate write to unblock nginx buffering
+            for (const msg of msgBuffer) {
+                res.write('data: ' + JSON.stringify(msg) + '\n\n');
+            }
+            sseClients.push(res);
+            const heartbeat = setInterval(function() {
+                try { res.write(': heartbeat\n\n'); } catch(e) {}
+            }, 15000);
+            req.on('close', function() {
+                clearInterval(heartbeat);
+                const i = sseClients.indexOf(res);
+                if (i >= 0) sseClients.splice(i, 1);
+            });
         });
 
         app.get('/visualizer/api/rooms', requireAuth, async function(req, res) {
