@@ -510,17 +510,17 @@ function renderStats(data) {
 // ---- Minimap ----
 function parseRoomCoord(name) {
     const m = name.match(/^([EW])(\d+)([NS])(\d+)$/);
-    if (!m) return null;
+    if (!m) return {};
     return {
-        x: parseInt(m[2]) * (m[1] === 'W' ? -1 : 1),
-        y: parseInt(m[4]) * (m[3] === 'N' ? 1 : -1),
+        x: m[1] === 'E' ? parseInt(m[2]) : -(parseInt(m[2]) + 1),
+        y: m[3] === 'N' ? parseInt(m[4]) : -(parseInt(m[4]) + 1),
     };
 }
 
 function coordToRoom(x, y) {
-    const ew = x < 0 ? 'W' : 'E';
-    const ns = y < 0 ? 'S' : 'N';
-    return `${ew}${Math.abs(x)}${ns}${Math.abs(y)}`;
+    const ew = x >= 0 ? ('E' + x) : ('W' + (-(x + 1)));
+    const ns = y >= 0 ? ('N' + y) : ('S' + (-(y + 1)));
+    return ew + ns;
 }
 
 function userColor(userId) {
