@@ -2,6 +2,7 @@
 
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 
 const LOGIN_HTML = `<!DOCTYPE html>
 <html lang="en">
@@ -67,27 +68,43 @@ function parseCookies(req) {
     }).filter(([k]) => k));
 }
 
+function makeToken(userId, secret) {
+    const expires = Date.now() + 7 * 24 * 60 * 60 * 1000; // 7 days
+    const payload = `${userId}:${expires}`;
+    const sig = crypto.createHmac('sha256', secret).update(payload).digest('hex');
+    return Buffer.from(`${payload}:${sig}`).toString('base64');
+}
+
+function verifyToken(token, secret) {
+    try {
+        const decoded = Buffer.from(token, 'base64').toString('utf8');
+        const parts = decoded.split(':');
+        if (parts.length !== 3) return false;
+        const [userId, expires, sig] = parts;
+        if (Date.now() > parseInt(expires)) return false;
+        const payload = `${userId}:${expires}`;
+        const expected = crypto.createHmac('sha256', secret).update(payload).digest('hex');
+        return crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected)) ? userId : false;
+    } catch(e) {
+        return false;
+    }
+}
+
 module.exports = function(config) {
     const html = fs.readFileSync(path.join(__dirname, '../public/index.html'), 'utf8');
-
-    let authlib;
-    try {
-        authlib = require('@screeps/backend/lib/authlib');
-    } catch(e) {
-        console.log('[screepsmod-visualizer] authlib not available, auth disabled');
-    }
+    const secret = crypto.randomBytes(32).toString('hex');
 
     async function requireAuth(req, res, next) {
-        if (!authlib || !config.auth) return next();
+        if (!config.auth) return next();
         const cookies = parseCookies(req);
         const token = cookies['viz_token'];
-        if (!token) return res.redirect('/visualizer/login');
-        try {
-            await authlib.checkToken(token, true);
-            next();
-        } catch(e) {
-            res.redirect('/visualizer/login');
+        if (!token || !verifyToken(token, secret)) {
+            if (req.path.startsWith('/visualizer/api/')) {
+                return res.status(401).json({ ok: 0, error: 'Unauthorized' });
+            }
+            return res.redirect('/visualizer/login');
         }
+        next();
     }
 
     config.backend.on('expressPreConfig', function(app) {
@@ -99,16 +116,19 @@ module.exports = function(config) {
 
         app.post('/visualizer/login', async function(req, res) {
             const { username, password } = req.body || {};
-            if (!username || !password) {
+            if (!username || !password || !config.auth) {
                 return res.status(400).send(LOGIN_HTML.replace('{{ERROR}}', '<span class="error">Username and password required.</span>'));
             }
             try {
                 const user = await config.auth.authUser(username, password);
-                const token = await authlib.genToken(user._id);
-                res.setHeader('Set-Cookie', `viz_token=${encodeURIComponent(token)}; Path=/visualizer; HttpOnly`);
+                if (!user) {
+                    return res.send(LOGIN_HTML.replace('{{ERROR}}', '<span class="error">Invalid username or password.</span>'));
+                }
+                const token = makeToken(user._id, secret);
+                res.setHeader('Set-Cookie', `viz_token=${encodeURIComponent(token)}; Path=/visualizer; HttpOnly; SameSite=Lax`);
                 res.redirect('/visualizer');
             } catch(e) {
-                res.send(LOGIN_HTML.replace('{{ERROR}}', '<span class="error">Invalid username or password.</span>'));
+                res.send(LOGIN_HTML.replace('{{ERROR}}', '<span class="error">Login error. Please try again.</span>'));
             }
         });
 
