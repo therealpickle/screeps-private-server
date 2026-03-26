@@ -594,6 +594,22 @@ document.getElementById('minimap').addEventListener('click', function(e) {
 });
 
 // ---- Room Info ----
+const BODY_ABBREV = {
+    move: 'M', work: 'W', carry: 'C', attack: 'A',
+    rangedAttack: 'R', heal: 'H', tough: 'T', claim: 'CL',
+};
+
+function bodyKey(body) {
+    if (!body || !body.length) return '?';
+    return body.map(function(p) { return BODY_ABBREV[p.type] || p.type; }).sort().join(' ');
+}
+
+function renderBodyGroup(bodyMap) {
+    return Object.keys(bodyMap).sort(function(a, b) { return bodyMap[b] - bodyMap[a]; })
+        .map(function(k) { return '<div class="ri-row"><b>[' + k + ']</b><span>\xd7' + bodyMap[k] + '</span></div>'; })
+        .join('');
+}
+
 function renderRoomInfo() {
     const el = document.getElementById('room-info');
     if (!el) return;
@@ -601,12 +617,20 @@ function renderRoomInfo() {
     const counts = {};
     let controllerLevel = null;
     let mineralType = null;
-    let ownCreeps = 0, hostileCreeps = 0, npcCreeps = 0;
+    const ownBodies = {}, hostileBodies = {}, npcBodies = {};
+    const roomStat = mapStatsCache[currentRoom];
+    const ownerId = roomStat && roomStat.own ? roomStat.own.user : null;
 
     for (const obj of objectsCache) {
         if (obj.type === 'creep' || obj.type === 'powerCreep') {
-            if (!obj.user) npcCreeps++;
-            else ownCreeps++;
+            const key = bodyKey(obj.body);
+            if (!obj.user) {
+                npcBodies[key] = (npcBodies[key] || 0) + 1;
+            } else if (ownerId && obj.user === ownerId) {
+                ownBodies[key] = (ownBodies[key] || 0) + 1;
+            } else {
+                hostileBodies[key] = (hostileBodies[key] || 0) + 1;
+            }
         } else if (obj.type === 'controller') {
             controllerLevel = obj.level !== undefined ? obj.level : null;
         } else if (obj.type === 'mineral' || obj.type === 'deposit') {
@@ -648,11 +672,12 @@ function renderRoomInfo() {
     if (resRows) sections.push(`<div class="ri-section"><div class="ri-heading">resources</div>${resRows}</div>`);
 
     // Creeps
-    let creepRows = '';
-    if (ownCreeps)     creepRows += `<div class="ri-row"><b>own</b><span>×${ownCreeps}</span></div>`;
-    if (hostileCreeps) creepRows += `<div class="ri-row"><b style="color:#884444">hostile</b><span>×${hostileCreeps}</span></div>`;
-    if (npcCreeps)     creepRows += `<div class="ri-row"><b>npc</b><span>×${npcCreeps}</span></div>`;
-    if (creepRows) sections.push(`<div class="ri-section"><div class="ri-heading">creeps</div>${creepRows}</div>`);
+    if (Object.keys(ownBodies).length)
+        sections.push('<div class="ri-section"><div class="ri-heading">creeps — own</div>' + renderBodyGroup(ownBodies) + '</div>');
+    if (Object.keys(hostileBodies).length)
+        sections.push('<div class="ri-section"><div class="ri-heading" style="color:#884444">creeps — hostile</div>' + renderBodyGroup(hostileBodies) + '</div>');
+    if (Object.keys(npcBodies).length)
+        sections.push('<div class="ri-section"><div class="ri-heading">creeps — npc</div>' + renderBodyGroup(npcBodies) + '</div>');
 
     el.innerHTML = sections.join('');
 }
