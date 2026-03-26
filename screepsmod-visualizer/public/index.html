@@ -796,6 +796,26 @@ function tooltipHtml(obj) {
     return lines.join('<br>');
 }
 
+// ---- WASD Pan ----
+document.addEventListener('keydown', function(e) {
+    if (viewZoom <= 1) return;
+    const tag = document.activeElement && document.activeElement.tagName;
+    if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+    const step = SIZE / viewZoom / 4; // pan 1/4 of visible area
+    let dx = 0, dy = 0;
+    if (e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft')  dx = -step;
+    if (e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') dx =  step;
+    if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp')    dy = -step;
+    if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown')  dy =  step;
+    if (!dx && !dy) return;
+    e.preventDefault();
+    viewOffsetX += dx;
+    viewOffsetY += dy;
+    clampViewOffset();
+    if (terrainCache) renderTerrain(terrainCache);
+    renderObjects();
+});
+
 // ---- Error ----
 function showError(msg) {
     errorEl.textContent = msg;
