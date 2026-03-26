@@ -376,7 +376,9 @@ function renderStats(data) {
     }
 
     const badgeUrl = '/api/user/badge-svg?username=' + encodeURIComponent(data.owner.username);
-    statsOwner.innerHTML = `<img class="owner-badge" src="${badgeUrl}" width="32" height="32" onerror="this.style.display='none'"><b>${data.owner.username}</b>`;
+    const ownerId = mapStatsCache[currentRoom] && mapStatsCache[currentRoom].own && mapStatsCache[currentRoom].own.user;
+    const ringColor = ownerId ? userColor(ownerId) : '#555';
+    statsOwner.innerHTML = `<span style="display:inline-block;border-radius:50%;border:2px solid ${ringColor};line-height:0;flex-shrink:0"><img class="owner-badge" src="${badgeUrl}" width="32" height="32" onerror="this.parentElement.style.display='none'"></span><b>${data.owner.username}</b>`;
 
     for (const m of STAT_META) {
         const values = (data.stats[m.key] || []).map(b => b.value);
@@ -797,7 +799,7 @@ function drawObject(obj) {
 
 function creepColor(obj) {
     if (!obj.user) return CREEP_COLORS.npc;
-    return CREEP_COLORS.own;
+    return userColor(obj.user);
 }
 
 function lighten(hex, amount) {
@@ -855,7 +857,7 @@ objectsCanvas.addEventListener('mousemove', function(e) {
 function tooltipHtml(obj) {
     const lines = [`<b>${obj.type}</b>`];
     if (obj.name)         lines.push(`name: ${obj.name}`);
-    if (obj.user)         lines.push(`user: ${obj.user}`);
+    if (obj.user)         lines.push(`user: ${(mapUsersCache[obj.user] && mapUsersCache[obj.user].username) || obj.user}`);
     if (obj.hits !== undefined && obj.hitsMax)
                           lines.push(`hits: ${obj.hits} / ${obj.hitsMax}`);
     if (obj.energy !== undefined && obj.energyCapacity !== undefined)
