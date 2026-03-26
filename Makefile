@@ -1,7 +1,7 @@
 -include .env
 export
 
-.PHONY: start stop restart rebuild purge-cache logs cli setup-staging teardown-staging _verify_user
+.PHONY: start stop restart rebuild update purge-cache logs cli setup-staging teardown-staging _verify_user
 
 # Start the server in the background
 start:
@@ -14,6 +14,11 @@ stop:
 # Restart all containers
 restart:
 	docker compose restart
+
+# Pull latest code and rebuild
+update:
+	git pull
+	$(MAKE) rebuild
 
 # Pull latest images, rebuild, and restart; also purges CDN cache if configured
 rebuild:
