@@ -584,8 +584,10 @@ document.getElementById('minimap').addEventListener('click', function(e) {
     const { minX, maxY, CELL, GAP } = minimapMeta;
     const S = CELL + GAP;
     const rect = this.getBoundingClientRect();
-    const col = Math.floor((e.clientX - rect.left) / S);
-    const row = Math.floor((e.clientY - rect.top)  / S);
+    const scaleX = this.width / rect.width;
+    const scaleY = this.height / rect.height;
+    const col = Math.floor((e.clientX - rect.left) * scaleX / S);
+    const row = Math.floor((e.clientY - rect.top)  * scaleY / S);
     const x = col + minX, y = maxY - row;
     const name = coordToRoom(x, y);
     if (allRooms.includes(name)) navigateTo(name);
