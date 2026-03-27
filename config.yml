@@ -6,6 +6,7 @@ mods:
     - screepsmod-features
     - screepsmod-stats
     - screepsmod-visualizer
+    - screepsmod-picklenet
 bots:
   simplebot: screepsbot-zeswarm
 

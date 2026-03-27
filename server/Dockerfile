@@ -6,6 +6,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends gettext-base \
 COPY server/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 COPY --chown=node:node screepsmod-visualizer/ /screepsmod-visualizer/
+COPY --chown=node:node screepsmod-picklenet/ /screepsmod-picklenet/
 
 USER node
 ENTRYPOINT ["/entrypoint.sh"]
