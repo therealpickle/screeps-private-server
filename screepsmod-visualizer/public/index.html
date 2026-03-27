@@ -17,7 +17,7 @@
     <div id="map-wrap">
         <div id="left-col">
             <div id="minimap-wrap">
-                <div id="minimap-label">world</div>
+                <div id="minimap-label">world <button id="minimap-expand" title="Expand world map">⤢</button></div>
                 <canvas id="minimap" width="1" height="1"></canvas>
             </div>
             <div id="room-info"></div>
@@ -33,6 +33,9 @@
         <div id="layers">
             <canvas id="terrain-canvas" width="600" height="600"></canvas>
             <canvas id="objects-canvas" width="600" height="600"></canvas>
+            <div id="worldmap-modal">
+                <canvas id="worldmap-canvas"></canvas>
+            </div>
         </div>
     </div>
     <div id="stats-panel">
@@ -118,7 +121,8 @@ let currentRoom = null;
 let pollTimer = null;
 let statsTimer = null;
 let objectsCache = [];
-let terrainCache = null;
+const terrainCache = {};
+const minimapTileCache = {};
 let allRooms = [];
 let statsOwnerName = null;
 let mapStatsCache = {};
@@ -201,7 +205,7 @@ function applyZoom(newTile) {
     document.getElementById('vz-in').disabled    = viewZoomIdx >= VIEW_ZOOM_STEPS.length - 1;
     document.getElementById('vz-out').disabled   = viewZoomIdx <= 0;
 
-    if (terrainCache) renderTerrain(terrainCache);
+    if (terrainCache[currentRoom]) renderTerrain(terrainCache[currentRoom]);
     renderObjects();
 }
 
@@ -231,7 +235,7 @@ function applyViewZoom(newIdx, pivotMx, pivotMy) {
     objectsCanvas.style.cursor = viewZoom > 1 ? 'grab' : 'crosshair';
     document.getElementById('vz-in').disabled  = viewZoomIdx >= VIEW_ZOOM_STEPS.length - 1;
     document.getElementById('vz-out').disabled = viewZoomIdx <= 0;
-    if (terrainCache) renderTerrain(terrainCache);
+    if (terrainCache[currentRoom]) renderTerrain(terrainCache[currentRoom]);
     renderObjects();
 }
 
@@ -264,6 +268,7 @@ async function init() {
         const room = (initial && data.rooms.includes(initial)) ? initial : data.rooms[0];
         roomSelect.value = room;
         await fetchMapStats();
+        fetchAllTerrain();
         selectRoom(room);
     } catch(e) {
         showError('Failed to load rooms: ' + e.message);
@@ -300,17 +305,50 @@ async function selectRoom(room) {
 
 // ---- Terrain ----
 async function loadTerrain(room) {
-    terrainCache = null;
     try {
         const res = await fetch(`/visualizer/api/terrain?room=${room}`);
         const data = await res.json();
         if (data.ok && data.terrain) {
-            terrainCache = data.terrain;
+            terrainCache[room] = data.terrain;
             renderTerrain(data.terrain);
         }
     } catch(e) {
         showError('Terrain error: ' + e.message);
     }
+}
+
+function buildMinimapTile(terrain) {
+    const CELL = 10, SCALE = 5;
+    const canvas = document.createElement('canvas');
+    canvas.width = CELL; canvas.height = CELL;
+    const ctx = canvas.getContext('2d');
+    const imgData = ctx.createImageData(CELL, CELL);
+    for (let py = 0; py < CELL; py++) {
+        for (let px = 0; px < CELL; px++) {
+            const t = parseInt(terrain[(py * SCALE + 2) * 50 + (px * SCALE + 2)]) || 0;
+            const v = (t & 1) ? 0x14 : 0x2b;
+            const i = (py * CELL + px) * 4;
+            imgData.data[i] = imgData.data[i+1] = imgData.data[i+2] = v;
+            imgData.data[i+3] = 255;
+        }
+    }
+    ctx.putImageData(imgData, 0, 0);
+    return canvas;
+}
+
+async function fetchAllTerrain() {
+    try {
+        const res = await fetch('/visualizer/api/terrain-all');
+        const data = await res.json();
+        if (!data.ok) return;
+        for (const [room, terrain] of Object.entries(data.terrain)) {
+            if (terrain) {
+                terrainCache[room] = terrain;
+                minimapTileCache[room] = buildMinimapTile(terrain);
+            }
+        }
+        renderMinimap();
+    } catch(e) {}
 }
 
 function renderTerrain(encoded) {
@@ -492,8 +530,17 @@ function renderMinimap() {
         const ownUser = stat && stat.own && stat.own.user;
         const ownEntry = ownUser && mapUsersCache[ownUser];
         const isPlayer = ownEntry && ownEntry.username !== 'Invader' && ownEntry.username !== 'Source Keeper';
-        ctx.fillStyle = isPlayer ? userColor(ownUser) : '#181818';
-        ctx.fillRect(cx, cy, CELL, CELL);
+        if (minimapTileCache[name]) {
+            ctx.drawImage(minimapTileCache[name], cx, cy);
+        } else {
+            ctx.fillStyle = '#181818';
+            ctx.fillRect(cx, cy, CELL, CELL);
+        }
+        if (isPlayer) {
+            ctx.strokeStyle = userColor(ownUser);
+            ctx.lineWidth = 1;
+            ctx.strokeRect(cx + 0.5, cy + 0.5, CELL - 1, CELL - 1);
+        }
         if (name === currentRoom) {
             ctx.strokeStyle = '#fff';
             ctx.lineWidth = 1;
@@ -546,26 +593,107 @@ document.getElementById('minimap').addEventListener('click', function(e) {
     if (allRooms.includes(name)) navigateTo(name);
 });
 
+// ---- World Map Modal ----
+(function() {
+    const modal  = document.getElementById('worldmap-modal');
+    const canvas = document.getElementById('worldmap-canvas');
+    let worldMeta = null;
+
+    function renderWorldMap() {
+        if (!allRooms.length) return;
+        const coords = allRooms.map(r => ({ name: r, ...parseRoomCoord(r) })).filter(r => r.x !== undefined);
+        const xs = coords.map(r => r.x), ys = coords.map(r => r.y);
+        const minX = Math.min(...xs), maxX = Math.max(...xs);
+        const minY = Math.min(...ys), maxY = Math.max(...ys);
+        const cols = maxX - minX + 1, rows = maxY - minY + 1;
+
+        const TARGET = 600, GAP = 1;
+        const CELL = Math.floor((TARGET + GAP) / Math.max(cols, rows)) - GAP;
+        const S = CELL + GAP;
+        canvas.width  = cols * S - GAP;
+        canvas.height = rows * S - GAP;
+        worldMeta = { minX, maxY, CELL, GAP };
+
+        const ctx = canvas.getContext('2d');
+        ctx.imageSmoothingEnabled = false;
+        ctx.fillStyle = '#0a0a0a';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        for (const { name, x, y } of coords) {
+            const cx = (x - minX) * S;
+            const cy = (maxY - y) * S;
+            if (minimapTileCache[name]) {
+                ctx.drawImage(minimapTileCache[name], cx, cy, CELL, CELL);
+            } else {
+                ctx.fillStyle = '#181818';
+                ctx.fillRect(cx, cy, CELL, CELL);
+            }
+            const stat = mapStatsCache[name];
+            const ownUser = stat && stat.own && stat.own.user;
+            const ownEntry = ownUser && mapUsersCache[ownUser];
+            const isPlayer = ownEntry && ownEntry.username !== 'Invader' && ownEntry.username !== 'Source Keeper';
+            if (isPlayer) {
+                ctx.strokeStyle = userColor(ownUser);
+                ctx.lineWidth = 1;
+                ctx.strokeRect(cx + 0.5, cy + 0.5, CELL - 1, CELL - 1);
+            }
+            if (name === currentRoom) {
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(cx + 0.5, cy + 0.5, CELL - 1, CELL - 1);
+            }
+        }
+    }
+
+    document.getElementById('minimap-expand').addEventListener('click', function() {
+        renderWorldMap();
+        modal.classList.add('open');
+    });
+
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+            modal.classList.remove('open');
+            return;
+        }
+        if (!worldMeta) return;
+        const { minX, maxY, CELL, GAP } = worldMeta;
+        const S = CELL + GAP;
+        const rect = canvas.getBoundingClientRect();
+        const col = Math.floor((e.clientX - rect.left) / S);
+        const row = Math.floor((e.clientY - rect.top)  / S);
+        const name = coordToRoom(col + minX, maxY - row);
+        if (allRooms.includes(name)) {
+            modal.classList.remove('open');
+            navigateTo(name);
+        }
+    });
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') modal.classList.remove('open');
+    });
+}());
+
 // ---- Room Info ----
 const BODY_ABBREV = {
     move: 'M', work: 'W', carry: 'C', attack: 'A',
-    rangedAttack: 'R', heal: 'H', tough: 'T', claim: 'CL',
+    rangedAttack: 'R', ranged_attack: 'R', heal: 'H', tough: 'T', claim: 'CL',
 };
 
 // Official Screeps part colours, in the order segments are drawn.
-const PART_SEGMENT_ORDER = ['attack', 'rangedAttack', 'heal', 'work', 'carry', 'claim', 'tough', 'move'];
+const PART_SEGMENT_ORDER = ['attack', 'rangedAttack', 'ranged_attack', 'heal', 'work', 'carry', 'claim', 'tough', 'move'];
 const PART_COLOR = {
-    attack:       '#ff2020', // red
-    rangedAttack: '#2266ff', // blue
-    heal:         '#22ff66', // green
-    work:         '#ffee00', // yellow
-    carry:        '#00ddff', // cyan
-    claim:        '#cc22ff', // violet
-    tough:        '#ff8800', // orange
-    move:         '#cccccc', // light grey
+    attack:        '#ff2020', // red
+    rangedAttack:  '#2266ff', // blue
+    ranged_attack: '#2266ff', // blue (snake_case alias)
+    heal:          '#22ff66', // green
+    work:          '#ffee00', // yellow
+    carry:         '#00ddff', // cyan
+    claim:         '#cc22ff', // violet
+    tough:         '#ff8800', // orange
+    move:          '#cccccc', // light grey
 };
 const ABBREV_TO_TYPE = {
-    A: 'attack', R: 'rangedAttack', H: 'heal', W: 'work',
+    A: 'attack', R: 'ranged_attack', H: 'heal', W: 'work',
     C: 'carry', CL: 'claim', T: 'tough', M: 'move',
 };
 
@@ -865,7 +993,7 @@ objectsCanvas.addEventListener('mousemove', function(e) {
         viewOffsetX = panBaseX - dx;
         viewOffsetY = panBaseY - dy;
         clampViewOffset();
-        if (terrainCache) renderTerrain(terrainCache);
+        if (terrainCache[currentRoom]) renderTerrain(terrainCache[currentRoom]);
         renderObjects();
         tooltip.style.display = 'none';
         return;
@@ -919,7 +1047,7 @@ document.addEventListener('keydown', function(e) {
     viewOffsetX += dx;
     viewOffsetY += dy;
     clampViewOffset();
-    if (terrainCache) renderTerrain(terrainCache);
+    if (terrainCache[currentRoom]) renderTerrain(terrainCache[currentRoom]);
     renderObjects();
 });
 

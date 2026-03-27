@@ -284,6 +284,20 @@ app.get('/visualizer/api/console-log', requireAuth, function(req, res) {
             }
         });
 
+        app.get('/visualizer/api/terrain-all', requireAuth, async function(req, res) {
+            try {
+                const db = config.common.storage.db;
+                const docs = await db['rooms.terrain'].find({});
+                const terrain = {};
+                for (const doc of docs) {
+                    if (doc.room) terrain[doc.room] = doc.terrain || doc.data || null;
+                }
+                res.json({ ok: 1, terrain });
+            } catch(e) {
+                res.status(500).json({ ok: 0, error: e.message });
+            }
+        });
+
         app.get('/visualizer/api/objects', requireAuth, async function(req, res) {
             const room = req.query.room;
             if (!room) return res.status(400).json({ ok: 0, error: 'room required' });

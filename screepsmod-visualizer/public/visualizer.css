@@ -76,6 +76,33 @@ select:focus { border-color: #555; }
     color: #404040;
     text-transform: uppercase;
     letter-spacing: 1px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+#minimap-expand {
+    background: none;
+    border: none;
+    color: #404040;
+    cursor: pointer;
+    font-size: 0.7rem;
+    padding: 0;
+    line-height: 1;
+}
+#minimap-expand:hover { color: #888; }
+#worldmap-modal {
+    display: none;
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+}
+#worldmap-modal.open { display: block; }
+#worldmap-canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    cursor: crosshair;
+    image-rendering: pixelated;
 }
 #minimap {
     cursor: pointer;
