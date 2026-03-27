@@ -1,7 +1,7 @@
 -include .env
 export
 
-.PHONY: start stop restart rebuild update purge-cache logs cli setup-staging teardown-staging _verify_user
+.PHONY: start stop restart rebuild update purge-cache logs cli listusers adduser setup-staging teardown-staging _verify_user
 
 # Start the server in the background
 start:
@@ -52,10 +52,18 @@ cli:
 reload:
 	echo 'utils.reloadConfig()' | docker compose exec -T screeps cli
 
+# List all users in the database
+listusers:
+	echo 'storage.db.users.find({})' | docker compose exec -T screeps cli
+
 # Create or update a user's password: make adduser USER=username PASS=password
+# Creates the user if they don't already exist, then sets the password.
 adduser:
 	@test -n "$(USER)" || (echo "Usage: make adduser USER=username PASS=password"; exit 1)
 	@test -n "$(PASS)" || (echo "Usage: make adduser USER=username PASS=password"; exit 1)
+	@USER_LOWER="$$(echo '$(USER)' | tr '[:upper:]' '[:lower:]')"; \
+	printf 'try { storage.db.users.insert({username:"%s",usernameLower:"%s",cpu:100,gcl:0,active:0,cpuAvailable:10000,blocked:false,authTouched:true}) } catch(e) {}\n' "$(USER)" "$$USER_LOWER" \
+	  | docker compose exec -T screeps cli
 	echo 'setPassword("$(USER)", "$(PASS)")' | docker compose exec -T screeps cli
 
 ################################################################################
