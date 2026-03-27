@@ -33,13 +33,26 @@
         <div id="layers">
             <canvas id="terrain-canvas" width="600" height="600"></canvas>
             <canvas id="objects-canvas" width="600" height="600"></canvas>
-            <div id="worldmap-modal">
-                <canvas id="worldmap-canvas"></canvas>
-            </div>
         </div>
     </div>
     <div id="stats-panel">
         <div id="stats-owner">no owner</div>
+    </div>
+</div>
+
+<div id="worldmap-modal">
+    <div id="wm-layout">
+        <div id="wm-left">
+            <div id="wm-room-name">—</div>
+            <canvas id="wm-preview" width="240" height="240"></canvas>
+            <div id="wm-room-info"></div>
+        </div>
+        <div id="worldmap-inner">
+            <canvas id="worldmap-canvas"></canvas>
+        </div>
+        <div id="wm-right">
+            <div id="wm-right-placeholder">placeholder</div>
+        </div>
     </div>
 </div>
 
@@ -82,6 +95,16 @@ const TERRAIN_COLOR = [
     '#0d1a0d',  // 2: swamp
     '#141414',  // 3: wall+swamp (treat as wall)
 ];
+
+const MINERAL_COLOR = {
+    H: '#d9e0f2', O: '#d9e0f2',
+    U: '#50d0ff',
+    L: '#89f473',
+    K: '#a169f7',
+    Z: '#f2d343',
+    X: '#f46c6c',
+    G: '#ffffff',
+};
 
 const STRUCT = {
     spawn:          { color: '#00ccff', size: 10 },
@@ -127,6 +150,7 @@ let allRooms = [];
 let statsOwnerName = null;
 let mapStatsCache = {};
 let mapUsersCache = {};
+let roomsSummaryCache = {};
 let minimapMeta = null; // { minX, maxY, CELL, GAP }
 const badgeCache = {}; // username -> Image | 'loading' | 'error'
 const VIEW_ZOOM_STEPS = [1, 1.5, 2, 3, 4, 6, 8];
@@ -269,6 +293,7 @@ async function init() {
         roomSelect.value = room;
         await fetchMapStats();
         fetchAllTerrain();
+        fetchRoomsSummary();
         selectRoom(room);
     } catch(e) {
         showError('Failed to load rooms: ' + e.message);
@@ -348,6 +373,14 @@ async function fetchAllTerrain() {
             }
         }
         renderMinimap();
+    } catch(e) {}
+}
+
+async function fetchRoomsSummary() {
+    try {
+        const res = await fetch('/visualizer/api/rooms-summary');
+        const data = await res.json();
+        if (data.ok) roomsSummaryCache = data.summary || {};
     } catch(e) {}
 }
 
@@ -595,9 +628,105 @@ document.getElementById('minimap').addEventListener('click', function(e) {
 
 // ---- World Map Modal ----
 (function() {
-    const modal  = document.getElementById('worldmap-modal');
-    const canvas = document.getElementById('worldmap-canvas');
+    const modal      = document.getElementById('worldmap-modal');
+    const canvas     = document.getElementById('worldmap-canvas');
+    const wmRoomName = document.getElementById('wm-room-name');
+    const wmPreview  = document.getElementById('wm-preview');
+    const wmRoomInfo = document.getElementById('wm-room-info');
     let worldMeta = null;
+
+    function renderPreview(room) {
+        wmRoomName.textContent = room;
+        const pCtx = wmPreview.getContext('2d');
+        pCtx.fillStyle = '#111';
+        pCtx.fillRect(0, 0, wmPreview.width, wmPreview.height);
+        const terrain = terrainCache[room];
+        if (!terrain) return;
+        const CELL = wmPreview.width / 50;
+        for (let y = 0; y < 50; y++) {
+            for (let x = 0; x < 50; x++) {
+                const t = parseInt(terrain[y * 50 + x]) || 0;
+                pCtx.fillStyle = TERRAIN_COLOR[t];
+                pCtx.fillRect(x * CELL, y * CELL, CELL, CELL);
+            }
+        }
+        const summ = roomsSummaryCache[room];
+        if (summ) {
+            const dot = Math.ceil(CELL);
+            const pos = (v) => Math.round(v * CELL);
+            pCtx.fillStyle = '#ffe84d';
+            for (const src of summ.sources) {
+                pCtx.fillRect(pos(src.x), pos(src.y), dot, dot);
+            }
+            if (summ.controller) {
+                pCtx.fillStyle = '#4488ff';
+                pCtx.fillRect(pos(summ.controller.x), pos(summ.controller.y), dot, dot);
+            }
+            if (summ.mineral) {
+                pCtx.fillStyle = MINERAL_COLOR[summ.mineral.type] || '#aaa';
+                pCtx.fillRect(pos(summ.mineral.x), pos(summ.mineral.y), dot, dot);
+            }
+        }
+    }
+
+    function renderHoverInfo(room) {
+        const stat     = mapStatsCache[room];
+        const own      = stat && stat.own;
+        const ownEntry = own && mapUsersCache[own.user];
+        const isPlayer = ownEntry && ownEntry.username !== 'Invader' && ownEntry.username !== 'Source Keeper';
+        const summ     = roomsSummaryCache[room];
+
+        let html = '';
+
+        const icon = (color) => `<span class="wm-icon" style="background:${color}"></span>`;
+
+        if (isPlayer) {
+            const ringColor = userColor(own.user);
+            const badgeUrl  = '/api/user/badge-svg?username=' + encodeURIComponent(ownEntry.username);
+            html += `<div class="wm-info-owner">
+                <span style="display:inline-block;border-radius:50%;border:2px solid ${ringColor};line-height:0;flex-shrink:0">
+                    <img src="${badgeUrl}" width="28" height="28" style="image-rendering:pixelated" onerror="this.parentElement.style.display='none'">
+                </span>
+                <b>${ownEntry.username}</b>
+            </div>`;
+            if (summ && summ.controller) {
+                html += `<div class="wm-info-row">${icon('#4488ff')}<span class="wm-label">controller</span><b>RCL ${own.level !== undefined ? own.level : '?'}</b></div>`;
+            }
+        } else {
+            html += '<div class="wm-info-row" style="color:#444">unowned</div>';
+        }
+
+        if (summ) {
+            if (summ.sources && summ.sources.length) {
+                html += `<div class="wm-info-row">${icon('#ffe84d')}<span class="wm-label">sources</span><b>${summ.sources.length}</b></div>`;
+            }
+            if (summ.mineral && summ.mineral.type) {
+                const mColor = MINERAL_COLOR[summ.mineral.type] || '#aaa';
+                html += `<div class="wm-info-row">${icon(mColor)}<span class="wm-label">mineral</span><b style="color:${mColor}">${summ.mineral.type}</b></div>`;
+            }
+        }
+
+        wmRoomInfo.innerHTML = html;
+    }
+
+    function clearHover() {
+        wmRoomName.textContent = '—';
+        const pCtx = wmPreview.getContext('2d');
+        pCtx.fillStyle = '#111';
+        pCtx.fillRect(0, 0, wmPreview.width, wmPreview.height);
+        wmRoomInfo.innerHTML = '';
+    }
+
+    function roomAtEvent(e) {
+        if (!worldMeta) return null;
+        const { minX, maxY, CELL, GAP } = worldMeta;
+        const S = CELL + GAP;
+        const rect = canvas.getBoundingClientRect();
+        const col = Math.floor((e.clientX - rect.left) / S);
+        const row = Math.floor((e.clientY - rect.top)  / S);
+        const name = coordToRoom(col + minX, maxY - row);
+        return allRooms.includes(name) ? name : null;
+    }
 
     function renderWorldMap() {
         if (!allRooms.length) return;
@@ -642,6 +771,27 @@ document.getElementById('minimap').addEventListener('click', function(e) {
                 ctx.lineWidth = 1;
                 ctx.strokeRect(cx + 0.5, cy + 0.5, CELL - 1, CELL - 1);
             }
+
+            // Draw sources / controller / mineral at exact room positions
+            const summ = roomsSummaryCache[name];
+            if (summ) {
+                const dot = Math.max(1, Math.round(CELL / 25));
+                const px = (v) => Math.round(cx + v * CELL / 50);
+                const py = (v) => Math.round(cy + v * CELL / 50);
+
+                ctx.fillStyle = '#ffe84d';
+                for (const src of summ.sources) {
+                    ctx.fillRect(px(src.x), py(src.y), dot, dot);
+                }
+                if (summ.controller) {
+                    ctx.fillStyle = '#4488ff';
+                    ctx.fillRect(px(summ.controller.x), py(summ.controller.y), dot, dot);
+                }
+                if (summ.mineral) {
+                    ctx.fillStyle = MINERAL_COLOR[summ.mineral.type] || '#aaa';
+                    ctx.fillRect(px(summ.mineral.x), py(summ.mineral.y), dot, dot);
+                }
+            }
         }
     }
 
@@ -653,19 +803,20 @@ document.getElementById('minimap').addEventListener('click', function(e) {
     modal.addEventListener('click', function(e) {
         if (e.target === modal) {
             modal.classList.remove('open');
-            return;
         }
-        if (!worldMeta) return;
-        const { minX, maxY, CELL, GAP } = worldMeta;
-        const S = CELL + GAP;
-        const rect = canvas.getBoundingClientRect();
-        const col = Math.floor((e.clientX - rect.left) / S);
-        const row = Math.floor((e.clientY - rect.top)  / S);
-        const name = coordToRoom(col + minX, maxY - row);
-        if (allRooms.includes(name)) {
-            modal.classList.remove('open');
-            navigateTo(name);
-        }
+    });
+
+    canvas.addEventListener('mousemove', function(e) {
+        const name = roomAtEvent(e);
+        if (name) { renderPreview(name); renderHoverInfo(name); }
+        else clearHover();
+    });
+
+    canvas.addEventListener('mouseleave', clearHover);
+
+    canvas.addEventListener('click', function(e) {
+        const name = roomAtEvent(e);
+        if (name) { modal.classList.remove('open'); navigateTo(name); }
     });
 
     document.addEventListener('keydown', function(e) {

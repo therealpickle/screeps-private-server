@@ -298,6 +298,25 @@ app.get('/visualizer/api/console-log', requireAuth, function(req, res) {
             }
         });
 
+        app.get('/visualizer/api/rooms-summary', requireAuth, async function(req, res) {
+            try {
+                const db = config.common.storage.db;
+                const docs = await db['rooms.objects'].find({ type: { $in: ['source', 'controller', 'mineral'] } });
+                const summary = {};
+                for (const doc of docs) {
+                    const r = doc.room;
+                    if (!r) continue;
+                    if (!summary[r]) summary[r] = { sources: [], controller: null, mineral: null };
+                    if (doc.type === 'source') summary[r].sources.push({ x: doc.x, y: doc.y });
+                    else if (doc.type === 'controller') summary[r].controller = { x: doc.x, y: doc.y, level: doc.level || 0 };
+                    else if (doc.type === 'mineral') summary[r].mineral = { x: doc.x, y: doc.y, type: doc.mineralType || null };
+                }
+                res.json({ ok: 1, summary });
+            } catch(e) {
+                res.status(500).json({ ok: 0, error: e.message });
+            }
+        });
+
         app.get('/visualizer/api/objects', requireAuth, async function(req, res) {
             const room = req.query.room;
             if (!room) return res.status(400).json({ ok: 0, error: 'room required' });

@@ -92,17 +92,106 @@ select:focus { border-color: #555; }
 #minimap-expand:hover { color: #888; }
 #worldmap-modal {
     display: none;
-    position: absolute;
+    position: fixed;
     inset: 0;
-    z-index: 10;
+    z-index: 500;
+    background: rgba(0, 0, 0, 0.8);
+    align-items: center;
+    justify-content: center;
 }
-#worldmap-modal.open { display: block; }
+#worldmap-modal.open { display: flex; }
+#wm-layout {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+    max-width: 95vw;
+    max-height: 90vh;
+}
+#wm-left {
+    width: 240px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+#wm-room-name {
+    font-size: 0.85rem;
+    color: #888;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding-bottom: 4px;
+    border-bottom: 1px solid #222;
+}
+#wm-preview {
+    display: block;
+    width: 240px;
+    height: 240px;
+    image-rendering: pixelated;
+    border: 1px solid #222;
+    background: #111;
+}
+#wm-room-info {
+    font-size: 0.72rem;
+    color: #aaa;
+    line-height: 1.8;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.wm-info-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #666;
+}
+.wm-icon {
+    width: 8px;
+    height: 8px;
+    flex-shrink: 0;
+}
+.wm-info-row span.wm-label { flex: 1; }
+.wm-info-row b { margin-left: auto; }
+.wm-info-row b { color: #c5c5c5; font-weight: normal; }
+.wm-info-owner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-bottom: 6px;
+    margin-bottom: 4px;
+    border-bottom: 1px solid #1a1a1a;
+}
+.wm-info-owner b { color: #ddd; font-weight: normal; }
+#worldmap-inner {
+    max-height: 90vh;
+    overflow: auto;
+    border: 1px solid #2a2a2a;
+    background: #0a0a0a;
+    flex-shrink: 1;
+    min-width: 0;
+}
 #worldmap-canvas {
     display: block;
-    width: 100%;
-    height: 100%;
     cursor: crosshair;
     image-rendering: pixelated;
+}
+#wm-right {
+    width: 240px;
+    flex-shrink: 0;
+}
+#wm-right-placeholder {
+    width: 100%;
+    height: 240px;
+    border: 1px dashed #222;
+    background: #0d0d0d;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #252525;
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
 }
 #minimap {
     cursor: pointer;
