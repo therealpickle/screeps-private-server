@@ -37,7 +37,7 @@
 including token auth — may not work correctly. If you're getting auth errors, ask the server
 admin to set your password again with `make adduser`. It's unclear whether
 changing your password via the web form above resolves this or not. Attempting to get a token
-(see below) can tell you if this needs to be done or not.
+([Getting an API Token](#getting-an-api-token)) can tell you if this needs to be done or not.
 
 ## Changing Your Password
 
@@ -88,7 +88,9 @@ make deploy-private # or deploy-my-cool-server-name
 
 #### 5. Verify
 
-Open the Screeps client, go to the **Script** tab, and confirm your code is there. If your spawn is placed, it will start running on the next tick. Error messages are on the Console.
+Open the Screeps client, go to the **Script** tab, and confirm your code is there.
+If your spawn is placed, it will start running on the next tick. Error messages are
+on the Console.
 
 ---
 
