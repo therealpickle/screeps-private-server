@@ -1,5 +1,12 @@
 # Player Setup Guide
 
+## Helpful Links
+
+- [Screeps Documentation](https://docs.screeps.com/) — getting started guides covering scripting basics, creeps, control, and more
+- [Screeps Game API](https://docs.screeps.com/api/) — official reference for game objects, prototypes, and constants
+- [Screeps Server HTTP API Endpoints](https://github.com/screepers/node-screeps-api/blob/master/docs/Endpoints.md) — community-maintained docs for the `/api/` routes
+- [Screeps Server WebSocket Endpoints](https://github.com/screepers/node-screeps-api/blob/master/docs/Websocket_endpoints.md) — subscribing to real-time events (console, cpu, room objects)
+
 ## Prerequisites
 
 - `node`/`npm` installed.
