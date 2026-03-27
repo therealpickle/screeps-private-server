@@ -301,16 +301,16 @@ app.get('/visualizer/api/console-log', requireAuth, function(req, res) {
         app.get('/visualizer/api/rooms-summary', requireAuth, async function(req, res) {
             try {
                 const db = config.common.storage.db;
-                const docs = await db['rooms.objects'].find({ type: { $in: ['source', 'controller', 'mineral'] } });
+                const [sources, controllers, minerals] = await Promise.all([
+                    db['rooms.objects'].find({ type: 'source' }),
+                    db['rooms.objects'].find({ type: 'controller' }),
+                    db['rooms.objects'].find({ type: 'mineral' }),
+                ]);
                 const summary = {};
-                for (const doc of docs) {
-                    const r = doc.room;
-                    if (!r) continue;
-                    if (!summary[r]) summary[r] = { sources: [], controller: null, mineral: null };
-                    if (doc.type === 'source') summary[r].sources.push({ x: doc.x, y: doc.y });
-                    else if (doc.type === 'controller') summary[r].controller = { x: doc.x, y: doc.y, level: doc.level || 0 };
-                    else if (doc.type === 'mineral') summary[r].mineral = { x: doc.x, y: doc.y, type: doc.mineralType || null };
-                }
+                const ensure = (r) => { if (!summary[r]) summary[r] = { sources: [], controller: null, mineral: null }; };
+                for (const doc of sources)     { if (doc.room) { ensure(doc.room); summary[doc.room].sources.push({ x: doc.x, y: doc.y }); } }
+                for (const doc of controllers) { if (doc.room) { ensure(doc.room); summary[doc.room].controller = { x: doc.x, y: doc.y, level: doc.level || 0 }; } }
+                for (const doc of minerals)    { if (doc.room) { ensure(doc.room); summary[doc.room].mineral = { x: doc.x, y: doc.y, type: doc.mineralType || null }; } }
                 res.json({ ok: 1, summary });
             } catch(e) {
                 res.status(500).json({ ok: 0, error: e.message });

@@ -689,14 +689,15 @@ document.getElementById('minimap').addEventListener('click', function(e) {
                 </span>
                 <b>${ownEntry.username}</b>
             </div>`;
-            if (summ && summ.controller) {
-                html += `<div class="wm-info-row">${icon('#4488ff')}<span class="wm-label">controller</span><b>RCL ${own.level !== undefined ? own.level : '?'}</b></div>`;
-            }
         } else {
             html += '<div class="wm-info-row" style="color:#444">unowned</div>';
         }
 
         if (summ) {
+            if (summ.controller) {
+                const level = isPlayer && own.level !== undefined ? own.level : summ.controller.level;
+                html += `<div class="wm-info-row">${icon('#4488ff')}<span class="wm-label">controller</span><b>RCL ${level}</b></div>`;
+            }
             if (summ.sources && summ.sources.length) {
                 html += `<div class="wm-info-row">${icon('#ffe84d')}<span class="wm-label">sources</span><b>${summ.sources.length}</b></div>`;
             }
