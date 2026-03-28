@@ -23,8 +23,10 @@
  *                      (same pattern as screepsmod-features) to inject the
  *                      Game.picklenet object into every player's sandbox each tick.
  *
- *   2. Auto-spawn polling — a setInterval scans all users every AUTO_SPAWN_POLL_MS
- *                           and spawns any who have no rooms.
+ *   2. Auto-spawn polling — runs only in the backend process (not engine processes)
+ *                           to avoid multiple pollers racing each other.  Scans
+ *                           all users every AUTO_SPAWN_POLL_MS and spawns any
+ *                           who have no rooms.
  */
 
 const AUTO_SPAWN_POLL_MS = 30000;
@@ -36,13 +38,15 @@ module.exports = function(config) {
         console.log('[picklenet] config.engine not available — Game.picklenet will not be injected');
     }
 
-    if (config.common) {
-        /* Delay startup to ensure config.common.storage is fully initialised.
-         * The visualizer mod uses the same pattern. */
+    if (config.common && !config.engine) {
+        /* Only run in the backend process (no config.engine), not in each engine
+         * process — otherwise every processor runs its own poller and races to
+         * spawn the same users simultaneously.
+         * Delay startup to ensure config.common.storage is fully initialised. */
         setTimeout(function() {
             startAutoSpawnPolling(config);
         }, 3000);
-    } else {
+    } else if (!config.common) {
         console.log('[picklenet] config.common not available — auto-spawn polling will not start');
     }
 };
@@ -95,20 +99,25 @@ function setupEngineHooks(config) {
 // compatibility across LokiJS and MongoDB backends.
 
 function startAutoSpawnPolling(config) {
-    const { db } = config.common.storage;
+    const { db, env } = config.common.storage;
 
     setInterval(function() {
         db['users'].find({})
             .then(function(users) {
+                const NPC_USERNAMES = ['Invader', 'Source Keeper', 'Screeps'];
                 const unroomed = users.filter(function(u) {
-                    return !u.rooms || u.rooms.length === 0;
+                    return (!u.rooms || u.rooms.length === 0) &&
+                           !u.bot &&
+                           !NPC_USERNAMES.includes(u.username);
                 });
-                unroomed.forEach(function(u) {
-                    processSpawnRequest(db, u._id)
-                        .catch(function(err) {
-                            console.error('[picklenet] auto-spawn error for userId=' + u._id + ':', err.message);
-                        });
-                });
+                unroomed.reduce(function(chain, u) {
+                    return chain.then(function() {
+                        return processSpawnRequest(db, env, u._id)
+                            .catch(function(err) {
+                                console.error('[picklenet] auto-spawn error for userId=' + u._id + ':', err.message);
+                            });
+                    });
+                }, Promise.resolve());
             })
             .catch(function(err) {
                 console.error('[picklenet] auto-spawn poll error:', err.message);
@@ -117,17 +126,17 @@ function startAutoSpawnPolling(config) {
 }
 
 /* Guard: skip users who already have a spawn (makes auto-spawn idempotent). */
-async function processSpawnRequest(db, userId) {
+async function processSpawnRequest(db, env, userId) {
     const existingSpawn = await db['rooms.objects'].findOne({ type: 'spawn', user: userId });
     if (existingSpawn) {
         console.log('[picklenet] userId=' + userId + ' already has a spawn in ' + existingSpawn.room + ', ignoring');
         return;
     }
 
-    await spawnUser(db, userId);
+    await spawnUser(db, env, userId);
 }
 
-async function spawnUser(db, userId) {
+async function spawnUser(db, env, userId) {
     /* Pick a random room whose controller is still at level 0 (unowned). */
     const controllers = await db['rooms.objects'].find({ type: 'controller', level: 0 });
     if (!controllers.length) {
@@ -149,21 +158,33 @@ async function spawnUser(db, userId) {
     const terrain = terrainObj.terrain;
 
     function isWalkable(x, y) {
-        /* Exclude the 2-tile border so the spawn doesn't block room exits. */
-        if (x < 2 || x > 47 || y < 2 || y > 47) return false;
+        /* Keep 2 tiles clear on all sides (x=3..46, y=3..46). */
+        if (x < 3 || x > 46 || y < 3 || y > 46) return false;
         return (parseInt(terrain[y * 50 + x]) & 1) === 0;
     }
 
+    function hasClearance(x, y, c) {
+        /* Require all tiles within Chebyshev distance c to be non-wall. */
+        for (let nx = x - c; nx <= x + c; nx++) {
+            for (let ny = y - c; ny <= y + c; ny++) {
+                if (nx === x && ny === y) continue;
+                if ((parseInt(terrain[ny * 50 + nx]) & 1) !== 0) return false;
+            }
+        }
+        return true;
+    }
+
     /* Chebyshev-distance spiral outward from room centre (25, 25).
-     * We only visit each shell's perimeter (the inner `continue` skips interior
-     * tiles), so the first hit is genuinely the nearest walkable tile. */
+     * Try 2-tile clearance first, then 1-tile, then any walkable tile. */
     let spawnX = -1, spawnY = -1;
-    for (let r = 0; r <= 24 && spawnX === -1; r++) {
-        for (let dx = -r; dx <= r && spawnX === -1; dx++) {
-            for (let dy = -r; dy <= r && spawnX === -1; dy++) {
-                if (Math.abs(dx) !== r && Math.abs(dy) !== r) continue; // interior tile — skip
-                const x = 25 + dx, y = 25 + dy;
-                if (isWalkable(x, y)) { spawnX = x; spawnY = y; }
+    for (let clearance = 2; clearance >= 0 && spawnX === -1; clearance--) {
+        for (let r = 0; r <= 24 && spawnX === -1; r++) {
+            for (let dx = -r; dx <= r && spawnX === -1; dx++) {
+                for (let dy = -r; dy <= r && spawnX === -1; dy++) {
+                    if (Math.abs(dx) !== r && Math.abs(dy) !== r) continue; // interior tile — skip
+                    const x = 25 + dx, y = 25 + dy;
+                    if (isWalkable(x, y) && hasClearance(x, y, clearance)) { spawnX = x; spawnY = y; }
+                }
             }
         }
     }
@@ -175,6 +196,9 @@ async function spawnUser(db, userId) {
 
     console.log('[picklenet] spawning userId=' + userId + ' in ' + room + ' at (' + spawnX + ', ' + spawnY + ')');
 
+    /* downgradeTime and safeMode are absolute game ticks, not countdowns. */
+    const gameTime = parseInt(await env.get('gameTime')) || 0;
+
     /* Claim the controller at RCL 1.  20 000-tick downgrade timer gives the
      * player time to start upgrading before losing the room.  Safe mode covers
      * the same window so they aren't immediately attackable. */
@@ -183,8 +207,8 @@ async function spawnUser(db, userId) {
             user: userId,
             level: 1,
             progress: 0,
-            downgradeTime: 20000,
-            safeMode: 20000,
+            downgradeTime: gameTime + 20000,
+            safeMode: gameTime + 20000,
             safeModeAvailable: 1,
         },
     });
@@ -208,7 +232,7 @@ async function spawnUser(db, userId) {
 
     /* Register the room on the user record so the engine includes it in CPU
      * scheduling and room-update loops. */
-    await db['users'].update({ _id: userId }, { $set: { rooms: [room] } });
+    await db['users'].update({ _id: userId }, { $set: { rooms: [room], active: true } });
 
     console.log('[picklenet] userId=' + userId + ' spawned successfully in ' + room);
 }

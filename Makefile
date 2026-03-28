@@ -1,7 +1,7 @@
 -include .env
 export
 
-.PHONY: start stop restart rebuild update purge-cache logs cli listusers adduser setup-staging teardown-staging _verify_user
+.PHONY: start stop restart rebuild update staging-wipe init-map purge-cache logs cli listusers adduser setup-staging teardown-staging _verify_user
 
 # Start the server in the background
 start:
@@ -19,6 +19,12 @@ restart:
 update:
 	git pull
 	$(MAKE) rebuild
+
+# Initialize the database and import a fresh map
+INIT_MAP_KEY ?= random_1x1
+init-map:
+	@echo 'utils.importMap("$(INIT_MAP_KEY)")' | docker compose exec -T screeps cli
+	@echo 'system.resumeSimulation()' | docker compose exec -T screeps cli
 
 # Pull latest images, rebuild, and restart; also purges CDN cache if configured
 rebuild:
@@ -62,7 +68,7 @@ adduser:
 	@test -n "$(USER)" || (echo "Usage: make adduser USER=username PASS=password"; exit 1)
 	@test -n "$(PASS)" || (echo "Usage: make adduser USER=username PASS=password"; exit 1)
 	@USER_LOWER="$$(echo '$(USER)' | tr '[:upper:]' '[:lower:]')"; \
-	printf 'try { storage.db.users.insert({username:"%s",usernameLower:"%s",cpu:100,gcl:0,active:0,cpuAvailable:10000,blocked:false,authTouched:true}) } catch(e) {}\n' "$(USER)" "$$USER_LOWER" \
+	printf 'try { storage.db.users.insert({username:"%s",usernameLower:"%s",cpu:100,gcl:0,active:true,cpuAvailable:10000,registeredDate:new Date().toISOString(),blocked:false,authTouched:true}) } catch(e) {}\n' "$(USER)" "$$USER_LOWER" \
 	  | docker compose exec -T screeps cli
 	echo 'setPassword("$(USER)", "$(PASS)")' | docker compose exec -T screeps cli
 
@@ -92,7 +98,6 @@ setup-staging: _verify_user start
 	@echo 'system.resetAllData()' | docker compose exec -T screeps cli
 	@echo 'utils.importMap("https://maps.screepspl.us/maps/random")' | docker compose exec -T screeps cli
 	@echo 'system.resumeSimulation()' | docker compose exec -T screeps cli
-	@(printf 'var USERNAME="%s"; var PASSWORD="%s"; ' "$(STAGING_USER)" "$(STAGING_PASS)"; tr '\n' ' ' < scripts/spawn-user.js; printf '\n') | docker compose exec -T screeps cli
 	@echo ""
 	@echo "=== Staging server ready ==="
 	@echo ""
@@ -104,4 +109,11 @@ setup-staging: _verify_user start
 
 # Stops the server and removes containers, volumes, and images
 teardown-staging:
+	@test "$(NUKE)" = "yes" || (echo "Safety check: run as 'make teardown-staging NUKE=yes'"; exit 1)
 	docker compose down --volumes --rmi all
+
+# Wipe all data volumes and remove the containers
+# Requires WIPE=yes to prevent accidental data loss: make staging-wipe WIPE=yes
+wipe-staging:
+	@test "$(WIPE)" = "yes" || (echo "Safety check: run as 'make staging-wipe WIPE=yes'"; exit 1)
+	docker compose down -v
