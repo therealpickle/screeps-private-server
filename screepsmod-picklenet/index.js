@@ -29,7 +29,7 @@
  *                           who have no rooms.
  */
 
-const AUTO_SPAWN_POLL_MS = 30000;
+const AUTO_SPAWN_POLL_MS = 10000;
 
 module.exports = function(config) {
     if (config.engine) {
