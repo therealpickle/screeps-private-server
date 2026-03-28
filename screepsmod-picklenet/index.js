@@ -108,6 +108,7 @@ function startAutoSpawnPolling(config) {
                 const unroomed = users.filter(function(u) {
                     return (!u.rooms || u.rooms.length === 0) &&
                            !u.bot &&
+                           u.username &&
                            !NPC_USERNAMES.includes(u.username);
                 });
                 unroomed.reduce(function(chain, u) {
