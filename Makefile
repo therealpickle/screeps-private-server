@@ -1,7 +1,7 @@
 -include .env
 export
 
-.PHONY: start stop restart rebuild update staging-wipe init-map purge-cache logs cli listusers adduser spawn-user setup-staging teardown-staging _verify_user
+.PHONY: start stop restart rebuild update staging-wipe init-map purge-cache logs cli listusers adduser deleteuser spawn-user setup-staging teardown-staging _verify_user
 
 # Start the server in the background (always builds the custom image first)
 start:
@@ -75,6 +75,12 @@ adduser:
 	  | docker compose exec -T screeps cli
 	echo 'setPassword("$(USER)", "$(PASS)")' | docker compose exec -T screeps cli
 	@printf 'storage.db.users.findOne({username:"%s"}).then(function(u){ return storage.db["users.code"].findOne({user:u._id}).then(function(c){ if(!c) return storage.db["users.code"].insert({user:u._id,branch:"default",modules:{main:""},activeWorld:true,activeSim:false}); }); })\n' "$(USER)" \
+	  | docker compose exec -T screeps cli
+
+# Delete a user and their code: make deleteuser USER=username
+deleteuser:
+	@test -n "$(USER)" || (echo "Usage: make deleteuser USER=username"; exit 1)
+	@printf 'storage.db.users.findOne({username:"%s"}).then(function(u){ if(!u){print("User not found");return;} return storage.db["users.code"].remove({user:u._id}).then(function(){ return storage.db.users.remove({_id:u._id}); }).then(function(){ print("Deleted user: %s"); }); })\n' "$(USER)" "$(USER)" \
 	  | docker compose exec -T screeps cli
 
 # Manually spawn a user: make spawn-user USER=username
