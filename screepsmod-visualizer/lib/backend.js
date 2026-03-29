@@ -298,6 +298,26 @@ app.get('/visualizer/api/console-log', requireAuth, function(req, res) {
             }
         });
 
+        app.get('/visualizer/api/room-overview', requireAuth, async function(req, res) {
+            const room = req.query.room;
+            if (!room) return res.status(400).json({ ok: 0, error: 'room required' });
+            try {
+                const db = config.common.storage.db;
+                const controller = await db['rooms.objects'].findOne({ $and: [{ room }, { type: 'controller' }] });
+                if (!controller || !controller.user) {
+                    return res.json({ ok: 1, owner: null, stats: {}, statsMax: {}, totals: {} });
+                }
+                const user = await db['users'].findOne({ _id: controller.user });
+                res.json({
+                    ok: 1,
+                    owner: user ? { username: user.username, badge: user.badge, _id: controller.user } : null,
+                    stats: {}, statsMax: {}, totals: {}
+                });
+            } catch(e) {
+                res.status(500).json({ ok: 0, error: e.message });
+            }
+        });
+
         app.get('/visualizer/api/rooms-summary', requireAuth, async function(req, res) {
             try {
                 const db = config.common.storage.db;
@@ -309,9 +329,23 @@ app.get('/visualizer/api/console-log', requireAuth, function(req, res) {
                 const summary = {};
                 const ensure = (r) => { if (!summary[r]) summary[r] = { sources: [], controller: null, mineral: null }; };
                 for (const doc of sources)     { if (doc.room) { ensure(doc.room); summary[doc.room].sources.push({ x: doc.x, y: doc.y }); } }
-                for (const doc of controllers) { if (doc.room) { ensure(doc.room); summary[doc.room].controller = { x: doc.x, y: doc.y, level: doc.level || 0 }; } }
+                for (const doc of controllers) { if (doc.room) { ensure(doc.room); summary[doc.room].controller = { x: doc.x, y: doc.y, level: doc.level || 0, user: doc.user || null }; } }
                 for (const doc of minerals)    { if (doc.room) { ensure(doc.room); summary[doc.room].mineral = { x: doc.x, y: doc.y, type: doc.mineralType || null }; } }
                 res.json({ ok: 1, summary });
+            } catch(e) {
+                res.status(500).json({ ok: 0, error: e.message });
+            }
+        });
+
+        app.get('/visualizer/api/users', requireAuth, async function(req, res) {
+            try {
+                const db = config.common.storage.db;
+                const users = await db['users'].find({});
+                const result = {};
+                for (const u of users) {
+                    if (u._id) result[u._id] = { username: u.username, badge: u.badge };
+                }
+                res.json({ ok: 1, users: result });
             } catch(e) {
                 res.status(500).json({ ok: 0, error: e.message });
             }

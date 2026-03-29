@@ -15,7 +15,7 @@
 
 <div id="canvas-wrap">
     <div id="map-wrap">
-        <div id="left-col">
+        <div id="left-panel">
             <div id="minimap-wrap">
                 <div id="minimap-label">world <button id="minimap-expand" title="Expand world map">⤢</button></div>
                 <canvas id="minimap" width="1" height="1"></canvas>
@@ -35,8 +35,8 @@
             <canvas id="objects-canvas" width="600" height="600"></canvas>
         </div>
     </div>
-    <div id="stats-panel">
-        <div id="stats-owner">no owner</div>
+    <div id="right-panel">
+        <div id="room-owner">no owner</div>
     </div>
 </div>
 
@@ -84,8 +84,8 @@ const tickEl = document.getElementById('tick');
 const roomLabel = document.getElementById('room-label');
 const tooltip = document.getElementById('tooltip');
 const errorEl = document.getElementById('error');
-const statsPanel = document.getElementById('stats-panel');
-const statsOwner = document.getElementById('stats-owner');
+const rightPanel = document.getElementById('right-panel');
+const roomOwner = document.getElementById('room-owner');
 
 // ---- Colors ----
 
@@ -130,26 +130,19 @@ const CREEP_COLORS = {
     npc:     '#ffaa00',
 };
 
-const STAT_META = [
-    { key: 'energyHarvested',   label: 'harvested',    color: '#4a8a4a' },
-    { key: 'energyControl',     label: 'upgraded',     color: '#6644aa' },
-    { key: 'energyCreeps',      label: 'spawned',      color: '#2266aa' },
-    { key: 'energyConstruction',label: 'built',        color: '#886633' },
-    { key: 'creepsProduced',    label: 'creeps born',  color: '#448844' },
-    { key: 'creepsLost',        label: 'creeps lost',  color: '#884444' },
-];
 
 // ---- State ----
 let currentRoom = null;
 let pollTimer = null;
-let statsTimer = null;
+let mapInfoTimer = null;
 let objectsCache = [];
 const terrainCache = {};
 const minimapTileCache = {};
 let allRooms = [];
-let statsOwnerName = null;
+let roomOwnerName = null;
 let mapStatsCache = {};
 let mapUsersCache = {};
+let usersCache = {}; // id -> { username, badge } — from our backend, no Steam auth needed
 let roomsSummaryCache = {};
 let minimapMeta = null; // { minX, maxY, CELL, GAP }
 const badgeCache = {}; // username -> Image | 'loading' | 'error'
@@ -291,7 +284,7 @@ async function init() {
         const initial = new URLSearchParams(location.search).get('room');
         const room = (initial && data.rooms.includes(initial)) ? initial : data.rooms[0];
         roomSelect.value = room;
-        await fetchMapStats();
+        await Promise.all([fetchMapInfo(), fetchUsers()]);
         fetchAllTerrain();
         fetchRoomsSummary();
         selectRoom(room);
@@ -319,13 +312,12 @@ async function selectRoom(room) {
     document.getElementById('vz-in').disabled  = false;
     document.getElementById('vz-out').disabled = true;
     if (pollTimer) clearInterval(pollTimer);
-    if (statsTimer) clearInterval(statsTimer);
+    if (mapInfoTimer) clearInterval(mapInfoTimer);
 
     await loadTerrain(room);
     await tick();
-    await fetchStats(room);
     pollTimer = setInterval(tick, 1000);
-    statsTimer = setInterval(() => { fetchStats(currentRoom); fetchMapStats(); }, 30000);
+    mapInfoTimer = setInterval(fetchMapInfo, 30000);
 }
 
 // ---- Terrain ----
@@ -380,7 +372,18 @@ async function fetchRoomsSummary() {
     try {
         const res = await fetch('/visualizer/api/rooms-summary');
         const data = await res.json();
-        if (data.ok) roomsSummaryCache = data.summary || {};
+        if (data.ok) {
+            roomsSummaryCache = data.summary || {};
+            // Build mapStatsCache ownership entries from rooms-summary so minimap colors work
+            // without needing a Steam auth token for /api/game/map-stats
+            for (const [room, s] of Object.entries(roomsSummaryCache)) {
+                if (s.controller && s.controller.user) {
+                    if (!mapStatsCache[room]) mapStatsCache[room] = {};
+                    mapStatsCache[room].own = { user: s.controller.user };
+                }
+            }
+            renderMinimap();
+        }
     } catch(e) {}
 }
 
@@ -408,23 +411,16 @@ async function tick() {
         if (!data.ok) return;
         objectsCache = data.objects || [];
         if (data.gameTime !== null) tickEl.textContent = data.gameTime;
+        // Derive owner from controller in objectsCache (must run before renderRoomInfo which reads roomOwnerName)
+        const ctrl = objectsCache.find(o => o.type === 'controller');
+        const ownerId = ctrl && ctrl.user;
+        const ownerInfo = ownerId && (usersCache[ownerId] || mapUsersCache[ownerId]);
+        renderRightPanel(ownerId ? { owner: { username: (ownerInfo && ownerInfo.username) || ownerId, badge: ownerInfo && ownerInfo.badge, _id: ownerId } } : null);
         renderRoomInfo();
         renderObjects();
         clearError();
     } catch(e) {
         showError('Update error: ' + e.message);
-    }
-}
-
-// ---- Stats ----
-async function fetchStats(room) {
-    try {
-        const res = await fetch(`/api/game/room-overview?room=${room}&interval=8`);
-        const data = await res.json();
-        if (!data.ok) { renderStats(null); return; }
-        renderStats(data);
-    } catch(e) {
-        renderStats(null);
     }
 }
 
@@ -434,46 +430,17 @@ function fmt(n) {
     return String(n);
 }
 
-function renderStats(data) {
-    statsOwnerName = data && data.owner ? data.owner.username : null;
+function renderRightPanel(data) {
+    roomOwnerName = data && data.owner ? data.owner.username : null;
     if (!data || !data.owner) {
-        statsOwner.innerHTML = '<i style="color:#444">unowned</i>';
-        // clear stat rows
-        for (const m of STAT_META) {
-            const el = document.getElementById('stat-' + m.key);
-            if (el) el.remove();
-        }
+        roomOwner.innerHTML = '<i style="color:#444">unowned</i>';
         return;
     }
 
     const badgeUrl = '/api/user/badge-svg?username=' + encodeURIComponent(data.owner.username);
-    const ownerId = mapStatsCache[currentRoom] && mapStatsCache[currentRoom].own && mapStatsCache[currentRoom].own.user;
+    const ownerId = data.owner._id;
     const ringColor = ownerId ? userColor(ownerId) : '#555';
-    statsOwner.innerHTML = `<span style="display:inline-block;border-radius:50%;border:2px solid ${ringColor};line-height:0;flex-shrink:0"><img class="owner-badge" src="${badgeUrl}" width="32" height="32" onerror="this.parentElement.style.display='none'"></span><b>${data.owner.username}</b>`;
-
-    for (const m of STAT_META) {
-        const values = (data.stats[m.key] || []).map(b => b.value);
-        const total = data.totals[m.key] || 0;
-        const max = Math.max(...values, 1);
-
-        let row = document.getElementById('stat-' + m.key);
-        if (!row) {
-            row = document.createElement('div');
-            row.className = 'stat-row';
-            row.id = 'stat-' + m.key;
-            statsPanel.appendChild(row);
-        }
-
-        const bars = values.map(v => {
-            const h = Math.max(2, Math.round((v / max) * 24));
-            return `<div class="stat-bar" style="height:${h}px;background:${m.color}88" title="${v}"></div>`;
-        }).join('');
-
-        row.innerHTML = `
-            <div class="stat-label">${m.label} <span>${fmt(total)}</span></div>
-            <div class="stat-bars">${bars}</div>
-        `;
-    }
+    roomOwner.innerHTML = `<span style="display:inline-block;border-radius:50%;border:2px solid ${ringColor};line-height:0;flex-shrink:0"><img class="owner-badge" src="${badgeUrl}" width="32" height="32" onerror="this.parentElement.style.display='none'"></span><b>${data.owner.username}</b>`;
 }
 
 // ---- Minimap ----
@@ -499,7 +466,7 @@ function userColor(userId) {
 }
 
 function getUserBadge(userId) {
-    const u = mapUsersCache[userId];
+    const u = mapUsersCache[userId] || usersCache[userId];
     if (!u || !u.username) return null;
     const name = u.username;
     if (badgeCache[name] instanceof Image) return badgeCache[name];
@@ -520,7 +487,15 @@ function getCreepSection(obj) {
 }
 
 
-async function fetchMapStats() {
+async function fetchUsers() {
+    try {
+        const res = await fetch('/visualizer/api/users');
+        const data = await res.json();
+        if (data.ok) usersCache = data.users || {};
+    } catch(e) {}
+}
+
+async function fetchMapInfo() {
     if (!allRooms.length) return;
     try {
         const res = await fetch('/api/game/map-stats', {
@@ -561,7 +536,7 @@ function renderMinimap() {
         const cy = (maxY - y) * S;
         const stat = mapStatsCache[name];
         const ownUser = stat && stat.own && stat.own.user;
-        const ownEntry = ownUser && mapUsersCache[ownUser];
+        const ownEntry = ownUser && (mapUsersCache[ownUser] || usersCache[ownUser]);
         const isPlayer = ownEntry && ownEntry.username !== 'Invader' && ownEntry.username !== 'Source Keeper';
         if (minimapTileCache[name]) {
             ctx.drawImage(minimapTileCache[name], cx, cy);
@@ -594,7 +569,7 @@ document.getElementById('minimap').addEventListener('mousemove', function(e) {
     const name = coordToRoom(col + minX, maxY - row);
     const stat = mapStatsCache[name];
     const ownUser = stat && stat.own && stat.own.user;
-    const ownEntry = ownUser && mapUsersCache[ownUser];
+    const ownEntry = ownUser && (mapUsersCache[ownUser] || usersCache[ownUser]);
     const isPlayer = ownEntry && ownEntry.username !== 'Invader' && ownEntry.username !== 'Source Keeper';
     if (isPlayer) {
         const badgeUrl = '/api/user/badge-svg?username=' + encodeURIComponent(ownEntry.username);
@@ -760,7 +735,7 @@ document.getElementById('minimap').addEventListener('click', function(e) {
             }
             const stat = mapStatsCache[name];
             const ownUser = stat && stat.own && stat.own.user;
-            const ownEntry = ownUser && mapUsersCache[ownUser];
+            const ownEntry = ownUser && (mapUsersCache[ownUser] || usersCache[ownUser]);
             const isPlayer = ownEntry && ownEntry.username !== 'Invader' && ownEntry.username !== 'Source Keeper';
             if (isPlayer) {
                 ctx.strokeStyle = userColor(ownUser);
@@ -973,8 +948,8 @@ function renderRoomInfo() {
     const sections = [];
 
     // Owner / controller
-    let ownerLine = statsOwnerName
-        ? `<div class="ri-row"><b>owner</b><span>${statsOwnerName}</span></div>`
+    let ownerLine = roomOwnerName
+        ? `<div class="ri-row"><b>owner</b><span>${roomOwnerName}</span></div>`
         : `<div class="ri-row"><b>owner</b><span style="color:#333">—</span></div>`;
     let ctrlLine = controllerLevel !== null
         ? `<div class="ri-row"><b>controller</b><span>lv ${controllerLevel}</span></div>`
@@ -1170,7 +1145,7 @@ objectsCanvas.addEventListener('mousemove', function(e) {
 function tooltipHtml(obj) {
     const lines = [`<b>${obj.type}</b>`];
     if (obj.name)         lines.push(`name: ${obj.name}`);
-    if (obj.user)         lines.push(`user: ${(mapUsersCache[obj.user] && mapUsersCache[obj.user].username) || obj.user}`);
+    if (obj.user)         lines.push(`user: ${((mapUsersCache[obj.user] || usersCache[obj.user]) && (mapUsersCache[obj.user] || usersCache[obj.user]).username) || obj.user}`);
     if (obj.hits !== undefined && obj.hitsMax)
                           lines.push(`hits: ${obj.hits} / ${obj.hitsMax}`);
     if (obj.energy !== undefined && obj.energyCapacity !== undefined)

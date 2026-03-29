@@ -50,7 +50,7 @@ select:focus { border-color: #555; }
     padding: 16px;
     gap: 20px;
 }
-#left-col {
+#left-panel {
     grid-column: 1;
     grid-row: 1 / -1;
     width: 200px;
@@ -282,14 +282,14 @@ select:focus { border-color: #555; }
     image-rendering: pixelated;
 }
 #objects-canvas { cursor: crosshair; }
-#stats-panel {
+#right-panel {
     width: 240px;
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
     gap: 12px;
 }
-#stats-owner {
+#room-owner {
     font-size: 0.75rem;
     color: #9d9d9d;
     border-bottom: 1px solid #222;
@@ -298,37 +298,12 @@ select:focus { border-color: #555; }
     align-items: center;
     gap: 8px;
 }
-#stats-owner b { color: #c5c5c5; }
+#room-owner b { color: #c5c5c5; }
 .owner-badge {
     width: 32px;
     height: 32px;
     flex-shrink: 0;
     image-rendering: pixelated;
-}
-.stat-row {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-}
-.stat-label {
-    font-size: 0.65rem;
-    color: #666;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    display: flex;
-    justify-content: space-between;
-}
-.stat-label span { color: #8c8c8c; }
-.stat-bars {
-    display: flex;
-    gap: 2px;
-    align-items: flex-end;
-    height: 24px;
-}
-.stat-bar {
-    flex: 1;
-    background: #1e3a1e;
-    min-height: 2px;
 }
 #tooltip {
     position: fixed;
