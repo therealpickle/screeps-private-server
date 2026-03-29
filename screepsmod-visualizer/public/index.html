@@ -904,7 +904,7 @@ function renderBodyGroup(section, bodyMap) {
     return Object.keys(bodyMap).sort(function(a, b) { return bodyMap[b] - bodyMap[a]; })
         .map(function(k) {
             const sprite = bodySpriteSVG(k, 14);
-            return '<div class="ri-row" data-body-key="' + k + '">' + sprite + '<b>[' + k + ']</b><span>\xd7' + bodyMap[k] + '</span></div>';
+            return '<div class="ri-row" data-body-key="' + k + '"><span class="body-icon">' + sprite + '</span><b>[' + k + ']</b><span>\xd7' + bodyMap[k] + '</span></div>';
         })
         .join('');
 }
@@ -1192,7 +1192,9 @@ function clearError() {
     const tt = document.getElementById('body-tooltip');
 
     document.getElementById('room-info').addEventListener('mousemove', function (e) {
-        const row = e.target.closest('[data-body-key]');
+        const icon = e.target.closest('.body-icon');
+        if (!icon) { tt.style.display = 'none'; return; }
+        const row = icon.closest('[data-body-key]');
         if (!row) { tt.style.display = 'none'; return; }
 
         const key = row.dataset.bodyKey;
