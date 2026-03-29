@@ -11,7 +11,7 @@ services:
     restart: unless-stopped
 
   screeps:
-    image: ghcr.io/jomik/screeps-server:edge
+    image: screeps-private-server:latest
     depends_on:
       - mongo
       - redis

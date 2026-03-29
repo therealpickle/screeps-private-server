@@ -3,8 +3,9 @@ export
 
 .PHONY: start stop restart rebuild update staging-wipe init-map purge-cache logs cli listusers adduser spawn-user setup-staging teardown-staging _verify_user
 
-# Start the server in the background
+# Start the server in the background (always builds the custom image first)
 start:
+	docker compose build
 	docker compose up -d
 
 # Stop the server without removing containers
@@ -23,14 +24,16 @@ update:
 # Initialize the database and import a fresh map
 INIT_MAP_KEY ?= random_1x1
 init-map:
+	@echo 'system.resetAllData()' | docker compose exec -T screeps cli
 	@echo 'utils.importMap("$(INIT_MAP_KEY)")' | docker compose exec -T screeps cli
+	@sleep 3
 	@echo 'system.resumeSimulation()' | docker compose exec -T screeps cli
 
-# Pull latest images, rebuild, and restart; also purges CDN cache if configured
+# Pull latest base images, rebuild custom image, and restart; also purges CDN cache if configured
 rebuild:
 	docker compose down
-	docker compose pull
-	docker compose build
+	docker compose pull --ignore-buildable
+	docker compose build --no-cache
 	docker compose up -d
 	$(MAKE) purge-cache
 
