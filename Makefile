@@ -1,7 +1,7 @@
 -include .env
 export
 
-.PHONY: start stop restart rebuild update staging-wipe init-map purge-cache logs cli listusers adduser setup-staging teardown-staging _verify_user
+.PHONY: start stop restart rebuild update staging-wipe init-map purge-cache logs cli listusers adduser spawn-user setup-staging teardown-staging _verify_user
 
 # Start the server in the background
 start:
@@ -71,6 +71,14 @@ adduser:
 	printf 'try { storage.db.users.insert({username:"%s",usernameLower:"%s",cpu:100,gcl:0,active:true,cpuAvailable:10000,registeredDate:new Date().toISOString(),blocked:false,authTouched:true}) } catch(e) {}\n' "$(USER)" "$$USER_LOWER" \
 	  | docker compose exec -T screeps cli
 	echo 'setPassword("$(USER)", "$(PASS)")' | docker compose exec -T screeps cli
+	@printf 'storage.db.users.findOne({username:"%s"}).then(function(u){ return storage.db["users.code"].findOne({user:u._id}).then(function(c){ if(!c) return storage.db["users.code"].insert({user:u._id,branch:"default",modules:{main:""},activeWorld:true,activeSim:false}); }); })\n' "$(USER)" \
+	  | docker compose exec -T screeps cli
+
+# Manually spawn a user: make spawn-user USER=username
+spawn-user:
+	@test -n "$(USER)" || (echo "Usage: make spawn-user USER=username"; exit 1)
+	@printf 'var USERNAME="%s";\n' "$(USER)" | cat - scripts/spawn-user.js \
+	  | docker compose exec -T screeps cli
 
 ################################################################################
 # Staging and testing setup

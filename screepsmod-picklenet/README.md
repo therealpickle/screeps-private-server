@@ -1,33 +1,37 @@
 # screepsmod-picklenet
 
-Automatically spawns new players who have no rooms.
-
-Every 30 seconds the mod scans all user accounts and places a spawn for any user with no rooms. This bootstraps brand-new accounts — the engine doesn't tick a user's code until they own a room, so they can't self-request a spawn.
+Provides a `Game.picklenet` API surface in every player's sandbox for future
+server-side actions.
 
 ## Installation
 
-Place the `screepsmod-picklenet` directory alongside your other mods and add it to your `config.yml`:
+Place the `screepsmod-picklenet` directory alongside your other mods and add it
+to your `config.yml`:
 
 ```yaml
 mods:
   - screepsmod-picklenet
 ```
 
-## Spawn placement
-
-- Picks a random unowned room (controller at level 0).
-- Places `Spawn1` at the nearest walkable tile to room centre (25, 25), keeping a 2-tile border clear.
-- Claims the controller at RCL 1 with vanilla downgrade timer (20 000 ticks) and safe mode (20 000 ticks).
-- Idempotent: if the user already has a spawn the attempt is skipped.
-
 ## Player API
 
-`Game.picklenet` is available in every player's sandbox. No methods are exposed yet — this is a placeholder for future server-side actions callable from bot code.
+`Game.picklenet` is available in every player's sandbox. No methods are exposed
+yet — this is a placeholder for future server-side actions callable from bot code.
 
-## Server logs
+## Spawning players
 
+Players place their first spawn via the game client as normal. To manually spawn
+a player (e.g. for testing), use the provided script:
+
+```bash
+make spawn-user USER=username
 ```
-[picklenet] spawning userId=abc123 in W3N4 at (25, 26)
-[picklenet] userId=abc123 spawned successfully in W3N4
-[picklenet] no unowned rooms available for userId=abc123
+
+Or pipe it directly to the CLI:
+
+```bash
+printf 'var USERNAME="alice";\n' | cat - scripts/spawn-user.js \
+  | docker compose exec -T screeps cli
 ```
+
+See `scripts/spawn-user.js` for details on spawn placement logic.
