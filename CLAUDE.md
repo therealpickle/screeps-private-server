@@ -43,9 +43,9 @@ docker compose up -d
 
 ## User management
 
-Registration is disabled. Add users via:
+Registration is disabled. Users are created automatically when they first log in via the Steam client. Set their password via:
 ```bash
-make adduser USER=username PASS=password
+make set-user-pass USER=username PASS=password
 ```
 
 ## First-time startup checklist
