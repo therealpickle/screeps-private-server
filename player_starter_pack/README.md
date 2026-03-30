@@ -13,8 +13,7 @@
 - Screeps purchased on Steam.
 - Obtain from administrator:
   - `<SERVER_ADDRESS>`
-  - `<USERNAME>`
-  - `<PASSWORD>`
+  - `<SERVER_PASSWORD>`
 
 ## Connecting to the Server
 
@@ -23,8 +22,7 @@
 3. Enter the server details and click **Connect**:
    - **Host:** `<SERVER_ADDRESS>`
    - **Port:** `21025`
-   - **Server password:** Leave blank
-4. Log in with your `<USERNAME>` and `<PASSWORD>`
+   - **Server password:** `<SERVER_PASSWORD>` (if set by admin, otherwise leave blank)
 
 ## First Time In
 
@@ -33,11 +31,16 @@
 3. Place your first Spawn to begin
 4. Set a password via the web form at `http://<SERVER_ADDRESS>:21025/authmod/password/`
 
-> **Known issue:** After first login (and possibly after placing your Spawn), some parts of the API —
-including token auth — may not work correctly. If you're getting auth errors, ask the server
-admin to set your password again with `make adduser`. It's unclear whether
-changing your password via the web form above resolves this or not. Attempting to get a token
-([Getting an API Token](#getting-an-api-token)) can tell you if this needs to be done or not.
+## Pickenet Extras
+The `picklenet` server adds a few extra features above the base game:
+
+1. A web UI to for a basic visualization.
+2. An auth system to push code
+3. (Experimental) Additional API endpoints to read the game state.
+
+### API Access
+
+1. Provide your server username (`<USERNAME>`) to the admin and you will receive `<PASSWORD>`.
 
 ## Changing Your Password
 

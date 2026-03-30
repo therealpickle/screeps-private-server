@@ -27,6 +27,7 @@ services:
       REDIS_HOST: redis
       STEAM_KEY: ${STEAM_KEY:?"Missing steam key"}
       STATS_KEY: ${STATS_KEY:?"Missing stats key"}
+      SERVER_PASSWORD: ${SERVER_PASSWORD:-}
     restart: unless-stopped
     build:
       context: .

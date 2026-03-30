@@ -27,13 +27,14 @@ curl --remote-name-all https://raw.githubusercontent.com/Jomik/screeps-server/ma
   && cp .env.sample .env
 ```
 
-### 3. Add Steam API key
+### 3. Configure `.env`
 
-Edit `.env` and set your Steam API key (get one at https://steamcommunity.com/dev/apikey):
+Edit `.env` and set the following variables:
 
-```
-STEAM_KEY=your_key_here
-```
+| Variable | Required | Description |
+|---|---|---|
+| `STEAM_KEY` | Yes | Steam API key from https://steamcommunity.com/dev/apikey |
+| `SERVER_PASSWORD` | No | If set, players must enter this when connecting via the Steam client |
 
 ### 4. Configure mods
 
@@ -77,7 +78,9 @@ setPassword("username", "password")
 | `make logs` | Tail server logs |
 | `make cli` | Open the server CLI |
 | `make reload` | Reload config.yml without restarting |
-| `make adduser USER=x PASS=y` | Add a new user |
+| `make set-user-pass USER=x PASS=y` | Set a user's password |
+| `make staging-user USER=x PASS=y` | Create a user without Steam (staging/testing) |
+| `make deleteuser USER=x` | Delete a user |
 
 ## Usage
 
@@ -89,10 +92,10 @@ setPassword("username", "password")
 
 ## User Management
 
-Registration is disabled by default. Add users manually:
+Registration is disabled. Users are created automatically when they first log in via the Steam client. Set their password via:
 
 ```bash
-make adduser USER=username PASS=password
+make set-user-pass USER=username PASS=password
 ```
 
-Share credentials with the user privately. They can change their password after logging in.
+Share credentials with the user privately. They can change their password at `http://<server>:21025/authmod/password/`.
