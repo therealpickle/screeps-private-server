@@ -1,25 +1,24 @@
 // Created with Claude Code (claude.ai/code)
 
-/* Spawns a user on the private server via the Screeps CLI.
- *
- * Usage: pipe to the CLI with a USERNAME variable set, e.g.:
- *
- *   echo 'var USERNAME="alice";' | cat - scripts/spawn-user.js \
- *     | docker compose exec -T screeps cli
- *
- * Or as a one-liner:
- *
- *   printf 'var USERNAME="alice";\n' | cat - scripts/spawn-user.js \
- *     | docker compose exec -T screeps cli
- *
- * Spawn placement:
- *   - Picks a random unowned room (controller at level 0).
- *   - Places Spawn1 at the nearest walkable tile to room centre (25, 25),
- *     preferring 2-tile clearance, then 1-tile, then any walkable tile.
- *   - Claims the controller at RCL 1 with 20 000-tick downgrade timer and
- *     safe mode.
- *   - Idempotent: skips if the user already has a spawn.
- */
+// Spawns a user on the private server via the Screeps CLI.
+//
+// Usage: pipe to the CLI with a USERNAME variable set, e.g.:
+//
+//   echo 'var USERNAME="alice";' | cat - scripts/spawn-user.js \
+//     | docker compose exec -T screeps cli
+//
+// Or as a one-liner:
+//
+//   printf 'var USERNAME="alice";\n' | cat - scripts/spawn-user.js \
+//     | docker compose exec -T screeps cli
+//
+// Spawn placement:
+//   - Picks a random unowned room (controller at level 0).
+//   - Places Spawn1 at the nearest walkable tile to room centre (25, 25),
+//     preferring 2-tile clearance, then 1-tile, then any walkable tile.
+//   - Claims the controller at RCL 1 with 20 000-tick downgrade timer and
+//     safe mode.
+//   - Idempotent: skips if the user already has a spawn.
 (function() {
     var db = storage.db;
     var env = storage.env;

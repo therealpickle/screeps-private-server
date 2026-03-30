@@ -830,6 +830,17 @@ function bodyKey(body) {
     return body.map(function(p) { return BODY_ABBREV[p.type] || p.type; }).sort().join(' ');
 }
 
+// Converts a bodyKey string (e.g. "A A M M M W") to compact form (e.g. "2A 3M 1W"),
+// ordered by PART_SEGMENT_ORDER.
+function compactBodyKey(key) {
+    const counts = {};
+    for (const abbr of key.split(' ')) counts[abbr] = (counts[abbr] || 0) + 1;
+    const seen = new Set();
+    const ordered = PART_SEGMENT_ORDER.map(t => BODY_ABBREV[t]).filter(a => a && !seen.has(a) && seen.add(a));
+    for (const abbr of Object.keys(counts)) if (!seen.has(abbr)) ordered.push(abbr);
+    return ordered.filter(a => counts[a]).map(a => counts[a] + a).join(' ');
+}
+
 // Returns [{type, count, color}] in segment order for a body array.
 function bodySegments(body) {
     const counts = {};
@@ -905,7 +916,7 @@ function renderBodyGroup(section, bodyMap) {
     return Object.keys(bodyMap).sort(function(a, b) { return bodyMap[b] - bodyMap[a]; })
         .map(function(k) {
             const sprite = bodySpriteSVG(k, 14);
-            return '<div class="ri-row" data-body-key="' + k + '"><span class="body-icon">' + sprite + '</span><b>[' + k + ']</b><span>\xd7' + bodyMap[k] + '</span></div>';
+            return '<div class="ri-row" data-body-key="' + k + '"><span class="body-icon">' + sprite + '</span><b>[' + compactBodyKey(k) + ']</b><span>\xd7' + bodyMap[k] + '</span></div>';
         })
         .join('');
 }
