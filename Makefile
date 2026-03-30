@@ -1,7 +1,7 @@
 -include .env
 export
 
-.PHONY: start stop restart rebuild update staging-wipe init-map purge-cache logs cli listusers set-user-pass deleteuser spawn-user setup-staging teardown-staging _verify_user
+.PHONY: start stop restart rebuild update staging-wipe init-map purge-cache logs cli listusers set-user-pass staging-user deleteuser spawn-user setup-staging teardown-staging _verify_user
 
 # Start the server in the background (always builds the custom image first)
 start:
@@ -71,6 +71,17 @@ set-user-pass:
 	@test -n "$(USER)" || (echo "Usage: make set-user-pass USER=username PASS=password"; exit 1)
 	@test -n "$(PASS)" || (echo "Usage: make set-user-pass USER=username PASS=password"; exit 1)
 	echo 'setPassword("$(USER)", "$(PASS)")' | docker compose exec -T screeps cli
+
+# Create a user and set password (for staging/testing without Steam): make staging-user USER=username PASS=password
+staging-user:
+	@test -n "$(USER)" || (echo "Usage: make staging-user USER=username PASS=password"; exit 1)
+	@test -n "$(PASS)" || (echo "Usage: make staging-user USER=username PASS=password"; exit 1)
+	@USER_LOWER="$$(echo '$(USER)' | tr '[:upper:]' '[:lower:]')"; \
+	printf 'try { storage.db.users.insert({username:"%s",usernameLower:"%s",cpu:100,gcl:0,active:true,cpuAvailable:10000,registeredDate:new Date().toISOString(),blocked:false,authTouched:true}) } catch(e) {}\n' "$(USER)" "$$USER_LOWER" \
+	  | docker compose exec -T screeps cli
+	echo 'setPassword("$(USER)", "$(PASS)")' | docker compose exec -T screeps cli
+	@printf 'storage.db.users.findOne({username:"%s"}).then(function(u){ return storage.db["users.code"].findOne({user:u._id}).then(function(c){ if(!c) return storage.db["users.code"].insert({user:u._id,branch:"default",modules:{main:""},activeWorld:true,activeSim:false}); }); })\n' "$(USER)" \
+	  | docker compose exec -T screeps cli
 
 # Delete a user and their code: make deleteuser USER=username
 deleteuser:
