@@ -2,6 +2,8 @@
 
 .env
 *.claude*
+!player_starter_pack/.claude/
+!player_starter_pack/.claude/**
 nginx/certs/
 docker-compose.override.yml
 
