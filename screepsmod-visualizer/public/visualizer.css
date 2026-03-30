@@ -1,3 +1,5 @@
+/* Created with Claude Code (claude.ai/code) */
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html { font-size: 20px; }
 body {
@@ -395,3 +397,5 @@ select:focus { border-color: #555; }
 .con-ts  { color: #333; flex-shrink: 0; }
 .con-msg { color: #999; }
 .con-err .con-msg { color: #cc6666; }
+
+/* Created with Claude Code (claude.ai/code) */

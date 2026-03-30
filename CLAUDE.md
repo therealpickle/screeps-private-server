@@ -1,3 +1,5 @@
+<!-- Created with Claude Code (claude.ai/code) -->
+
 # Screeps Server - Setup Notes
 
 ## Working with Claude
@@ -198,3 +200,7 @@ setFeatureEnabled('feature-name', false)  // Disable a feature
 | `utils.disableGCLToCPU()` | screepsmod-admin-utils | Disable GCL-based CPU scaling |
 | `mongo.importDB()` | screepsmod-mongo | Import LokiJS data into MongoDB |
 | `setFeatureEnabled('name', bool)` | screepsmod-features | Toggle a named feature |
+
+<!-- Created with Claude Code (claude.ai/code) -->
+
+<!-- Created with Claude Code (claude.ai/code) -->

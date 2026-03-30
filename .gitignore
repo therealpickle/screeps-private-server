@@ -1,4 +1,10 @@
+# Created with Claude Code (claude.ai/code)
+
 .env
 *.claude*
 nginx/certs/
 docker-compose.override.yml
+
+# Created with Claude Code (claude.ai/code)
+
+# Created with Claude Code (claude.ai/code)

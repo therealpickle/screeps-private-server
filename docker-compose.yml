@@ -1,3 +1,5 @@
+# Created with Claude Code (claude.ai/code)
+
 services:
   nginx:
     image: nginx:alpine
@@ -51,3 +53,7 @@ volumes:
   screeps-user:
   redis-data:
   mongo-data:
+
+# Created with Claude Code (claude.ai/code)
+
+# Created with Claude Code (claude.ai/code)

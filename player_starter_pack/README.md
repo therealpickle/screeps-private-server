@@ -1,3 +1,5 @@
+<!-- Created with Claude Code (claude.ai/code) -->
+
 # Player Setup Guide
 
 ## Helpful Links
@@ -276,3 +278,7 @@ Anything that compiles to WebAssembly (Go, Swift, Zig, etc.) is theoretically po
 
 - This is a private server — the in-game tutorial and official shard content do not apply
 - If you can see the map but clicking does nothing, the simulation may be paused — let the admin know
+
+<!-- Created with Claude Code (claude.ai/code) -->
+
+<!-- Created with Claude Code (claude.ai/code) -->

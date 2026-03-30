@@ -1,3 +1,5 @@
+<!-- Created with Claude Code (claude.ai/code) -->
+
 # screepsmod-picklenet
 
 Provides a `Game.picklenet` API surface in every player's sandbox for future
@@ -35,3 +37,7 @@ printf 'var USERNAME="alice";\n' | cat - scripts/spawn-user.js \
 ```
 
 See `scripts/spawn-user.js` for details on spawn placement logic.
+
+<!-- Created with Claude Code (claude.ai/code) -->
+
+<!-- Created with Claude Code (claude.ai/code) -->

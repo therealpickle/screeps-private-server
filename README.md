@@ -1,3 +1,5 @@
+<!-- Created with Claude Code (claude.ai/code) -->
+
 > **Personal project.** This is my own private Screeps server setup. No guarantees, no support, no promises. Use it as a reference if it's useful to you.
 >
 > Heavily assisted by [Claude](https://claude.ai).
@@ -99,3 +101,7 @@ make set-user-pass USER=username PASS=password
 ```
 
 Share credentials with the user privately. They can change their password at `http://<server>:21025/authmod/password/`.
+
+<!-- Created with Claude Code (claude.ai/code) -->
+
+<!-- Created with Claude Code (claude.ai/code) -->

@@ -1,3 +1,5 @@
+# Created with Claude Code (claude.ai/code)
+
 # Local development override. Copy to docker-compose.override.yml (gitignored).
 # Docker Compose auto-applies this file when present — no extra flags needed.
 #
@@ -9,3 +11,7 @@ services:
   screeps:
     volumes:
       - ./screepsmod-visualizer:/screepsmod-visualizer
+
+# Created with Claude Code (claude.ai/code)
+
+# Created with Claude Code (claude.ai/code)

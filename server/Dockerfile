@@ -1,3 +1,5 @@
+# Created with Claude Code (claude.ai/code)
+
 FROM ghcr.io/jomik/screeps-server:edge
 
 USER root
@@ -11,3 +13,5 @@ COPY --chown=node:node screepsmod-picklenet/ /screepsmod-picklenet/
 USER node
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ["start"]
+
+# Created with Claude Code (claude.ai/code)

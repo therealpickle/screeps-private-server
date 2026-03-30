@@ -1,3 +1,5 @@
+# Created with Claude Code (claude.ai/code)
+
 -include .env
 export
 
@@ -140,3 +142,7 @@ teardown-staging:
 wipe-staging:
 	@test "$(WIPE)" = "yes" || (echo "Safety check: run as 'make staging-wipe WIPE=yes'"; exit 1)
 	docker compose down -v
+
+# Created with Claude Code (claude.ai/code)
+
+# Created with Claude Code (claude.ai/code)

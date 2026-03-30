@@ -1,3 +1,5 @@
+# Created with Claude Code (claude.ai/code)
+
 .PHONY: install init-screeps-yml deploy-%
 
 init-screeps-yml:
@@ -9,3 +11,7 @@ install:
 
 deploy-%:
 	npx screeps-api upload --server $* default/*.js
+
+# Created with Claude Code (claude.ai/code)
+
+# Created with Claude Code (claude.ai/code)

@@ -1,3 +1,5 @@
+// Created with Claude Code (claude.ai/code)
+
 /* Spawns a user on the private server via the Screeps CLI.
  *
  * Usage: pipe to the CLI with a USERNAME variable set, e.g.:
@@ -111,3 +113,5 @@
             });
     }
 })()
+
+// Created with Claude Code (claude.ai/code)

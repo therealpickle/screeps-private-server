@@ -1,3 +1,5 @@
+// Created with Claude Code (claude.ai/code)
+
 'use strict';
 
 const path = require('path');
@@ -371,3 +373,7 @@ app.get('/visualizer/api/console-log', requireAuth, function(req, res) {
         });
     });
 };
+
+// Created with Claude Code (claude.ai/code)
+
+// Created with Claude Code (claude.ai/code)

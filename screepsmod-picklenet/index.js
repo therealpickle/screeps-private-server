@@ -1,3 +1,5 @@
+// Created with Claude Code (claude.ai/code)
+
 'use strict';
 
 /* screepsmod-picklenet
@@ -57,3 +59,7 @@ function setupEngineHooks(config) {
         return game;
     };
 }
+
+// Created with Claude Code (claude.ai/code)
+
+// Created with Claude Code (claude.ai/code)

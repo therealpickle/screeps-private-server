@@ -1,4 +1,5 @@
 #!/bin/sh
+# Created with Claude Code (claude.ai/code)
 set -e
 envsubst '${STATS_KEY}' < /screeps/config.yml.template > /screeps/config.yml
 rm -f /screeps/storage.sock
@@ -21,3 +22,5 @@ if (!s.includes('EADDRINUSE_PATCH')) {
 
 cd /screeps/mods && npm install /screepsmod-visualizer /screepsmod-picklenet 2>/dev/null || true
 exec "$@"
+
+# Created with Claude Code (claude.ai/code)
