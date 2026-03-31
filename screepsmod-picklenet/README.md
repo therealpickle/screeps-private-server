@@ -27,6 +27,32 @@ TOKEN=$(curl -s -X POST "http://<HOST>:21025/api/auth/signin" \
   | grep -o '"token":"[^"]*"' | cut -d'"' -f4)
 ```
 
+### GET /api/picklenet/memory-stream
+
+SSE stream of the authenticated player's full Memory object — one frame per tick.
+
+```
+GET /api/picklenet/memory-stream
+X-Token: <token>
+```
+
+**Response stream:**
+```
+: ok
+
+data: {"tick":12345,"data":"gz:<base64>"}
+data: {"tick":12346,"data":"gz:<base64>"}
+```
+
+- `data` is gzip+base64 encoded JSON — same format as `GET /api/user/memory`
+- Decode: `echo "<base64>" | base64 -d | gunzip`
+- `: heartbeat` comments sent every 15s
+
+**Errors:**
+- `401` — missing or invalid token
+
+---
+
 ### GET /api/picklenet/console-stream
 
 SSE stream of the authenticated player's console output (log and error).

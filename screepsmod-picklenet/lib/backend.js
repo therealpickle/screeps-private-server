@@ -1,5 +1,7 @@
 'use strict';
 
+const zlib = require('zlib');
+
 /* Backend HTTP layer for screepsmod-picklenet.
  *
  * Runs in the backend process. Registers Express routes under /api/picklenet/.
@@ -7,6 +9,7 @@
  * Endpoints:
  *   GET /api/picklenet/room-stream?rooms=W1N1,W2N2
  *   GET /api/picklenet/console-stream
+ *   GET /api/picklenet/memory-stream
  *   X-Token: <token from /api/auth/signin>
  *
  * Auth:
@@ -68,6 +71,18 @@ module.exports = function setupBackend(config) {
     // Each entry: { res, rooms: Set<string>, userId }
     const clients = [];
 
+    // ---- Memory-stream SSE clients ----
+    const memoryClients = [];
+
+    function gzipEncode(str) {
+        return new Promise(function(resolve, reject) {
+            zlib.gzip(Buffer.from(str || '{}', 'utf8'), function(err, buf) {
+                if (err) return reject(err);
+                resolve('gz:' + buf.toString('base64'));
+            });
+        });
+    }
+
     // ---- Console-stream SSE clients + buffer ----
     const consoleClients = [];
     const consoleBuffer  = [];
@@ -93,37 +108,61 @@ module.exports = function setupBackend(config) {
     // pushes one frame per connected client.
 
     async function onTick(tick) {
-        if (!clients.length) return;
+        if (!clients.length && !memoryClients.length) return;
 
-        const roomSet = new Set();
-        clients.forEach(function(c) { c.rooms.forEach(function(r) { roomSet.add(r); }); });
-        const allRooms = [...roomSet];
-        if (!allRooms.length) return;
+        // Push room-stream frames
+        if (clients.length) {
+            const roomSet = new Set();
+            clients.forEach(function(c) { c.rooms.forEach(function(r) { roomSet.add(r); }); });
+            const allRooms = [...roomSet];
 
-        let byRoom;
-        try {
-            const objects = await db['rooms.objects'].find({ room: { $in: allRooms } });
-            byRoom = {};
-            for (const obj of objects) {
-                if (!byRoom[obj.room]) byRoom[obj.room] = [];
-                byRoom[obj.room].push(obj);
+            if (allRooms.length) {
+                let byRoom;
+                try {
+                    const objects = await db['rooms.objects'].find({ room: { $in: allRooms } });
+                    byRoom = {};
+                    for (const obj of objects) {
+                        if (!byRoom[obj.room]) byRoom[obj.room] = [];
+                        byRoom[obj.room].push(obj);
+                    }
+                } catch(e) {
+                    byRoom = {};
+                }
+
+                const payload = {};
+                for (const room of allRooms) payload[room] = byRoom[room] || [];
+
+                for (let i = clients.length - 1; i >= 0; i--) {
+                    const client = clients[i];
+                    const frame = {};
+                    for (const room of client.rooms) frame[room] = payload[room] || [];
+                    const data = 'data: ' + JSON.stringify({ tick, rooms: frame }) + '\n\n';
+                    try {
+                        client.res.write(data);
+                    } catch(e) {
+                        clients.splice(i, 1);
+                    }
+                }
             }
-        } catch(e) {
-            return;
         }
 
-        const payload = {};
-        for (const room of allRooms) payload[room] = byRoom[room] || [];
-
-        for (let i = clients.length - 1; i >= 0; i--) {
-            const client = clients[i];
-            const frame = {};
-            for (const room of client.rooms) frame[room] = payload[room] || [];
-            const data = 'data: ' + JSON.stringify({ tick, rooms: frame }) + '\n\n';
+        // Push memory frames — one Redis read per unique userId
+        const memoryUserIds = new Set();
+        memoryClients.forEach(function(c) { memoryUserIds.add(c.userId); });
+        for (const userId of memoryUserIds) {
+            let encoded;
             try {
-                client.res.write(data);
-            } catch(e) {
-                clients.splice(i, 1);
+                const raw = await env.get('memory:' + userId);
+                encoded = await gzipEncode(raw || '{}');
+            } catch(e) { continue; }
+            const frame = 'data: ' + JSON.stringify({ tick, data: encoded }) + '\n\n';
+            for (let i = memoryClients.length - 1; i >= 0; i--) {
+                if (memoryClients[i].userId !== userId) continue;
+                try {
+                    memoryClients[i].res.write(frame);
+                } catch(e) {
+                    memoryClients.splice(i, 1);
+                }
             }
         }
     }
@@ -205,6 +244,30 @@ module.exports = function setupBackend(config) {
                 clearInterval(heartbeat);
                 const i = clients.indexOf(client);
                 if (i >= 0) clients.splice(i, 1);
+            });
+        });
+
+        app.get('/api/picklenet/memory-stream', requireXToken, function(req, res) {
+            req.socket.setTimeout(0);
+            req.socket.setNoDelay(true);
+            res.setHeader('Content-Type', 'text/event-stream');
+            res.setHeader('Cache-Control', 'no-cache');
+            res.setHeader('Connection', 'keep-alive');
+            res.setHeader('X-Accel-Buffering', 'no');
+            res.flushHeaders();
+            res.write(': ok\n\n');
+
+            const client = { res, userId: req.userId };
+            memoryClients.push(client);
+
+            const heartbeat = setInterval(function() {
+                try { res.write(': heartbeat\n\n'); } catch(e) {}
+            }, 15000);
+
+            req.on('close', function() {
+                clearInterval(heartbeat);
+                const i = memoryClients.indexOf(client);
+                if (i >= 0) memoryClients.splice(i, 1);
             });
         });
 

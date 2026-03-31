@@ -114,6 +114,58 @@ Each SSE frame:
 
 The server's built-in WebSocket API supports per-tick room subscriptions. If the project already uses `screeps-api` for code deployment, this is the natural fit — see the [WebSocket endpoints docs](https://github.com/screepers/node-screeps-api/blob/master/docs/Websocket_endpoints.md).
 
+## Memory
+
+**Read full memory** — returns gzip+base64 encoded JSON (`gz:<base64>`):
+```bash
+curl -s -H "X-Token: $TOKEN" -H "X-Username: <USERNAME>" \
+  "http://<HOST>:<PORT>/api/user/memory"
+# decode:
+curl -s -H "X-Token: $TOKEN" -H "X-Username: <USERNAME>" \
+  "http://<HOST>:<PORT>/api/user/memory" \
+  | python3 -c "import sys,json,base64,gzip; d=json.load(sys.stdin)['data']; print(gzip.decompress(base64.b64decode(d[3:])).decode())"
+```
+
+Optional `?path=creeps.Archy` to read a sub-path.
+
+**Read a memory segment** (raw string):
+```bash
+curl -s -H "X-Token: $TOKEN" -H "X-Username: <USERNAME>" \
+  "http://<HOST>:<PORT>/api/user/memory-segment?segment=0"
+```
+
+**Write memory at a path:**
+```bash
+curl -s -X POST "http://<HOST>:<PORT>/api/user/memory" \
+  -H "X-Token: $TOKEN" -H "X-Username: <USERNAME>" \
+  -H "Content-Type: application/json" \
+  -d '{"path":"someKey","value":{"foo":42}}'
+```
+
+**Write a memory segment:**
+```bash
+curl -s -X POST "http://<HOST>:<PORT>/api/user/memory-segment" \
+  -H "X-Token: $TOKEN" -H "X-Username: <USERNAME>" \
+  -H "Content-Type: application/json" \
+  -d '{"segment":0,"data":"your raw string"}'
+```
+
+**Per-tick memory stream** (SSE):
+```bash
+curl -s -N -H "X-Token: $TOKEN" \
+  "http://<HOST>:<PORT>/api/picklenet/memory-stream"
+```
+
+Each SSE frame:
+```json
+{"tick":12345,"data":"gz:<base64>"}
+```
+
+Decode the data field:
+```bash
+echo "<base64>" | base64 -d | gunzip
+```
+
 ## Running console commands
 
 Execute a JS expression in your game sandbox via the API. Output appears in the
