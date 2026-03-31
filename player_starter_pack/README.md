@@ -1,5 +1,3 @@
-<!-- Created with Claude Code (claude.ai/code) -->
-
 # Player Setup Guide
 
 ## Helpful Links
@@ -9,26 +7,10 @@
 - [Screeps Server HTTP API Endpoints](https://github.com/screepers/node-screeps-api/blob/master/docs/Endpoints.md) — community-maintained docs for the `/api/` routes
 - [Screeps Server WebSocket Endpoints](https://github.com/screepers/node-screeps-api/blob/master/docs/Websocket_endpoints.md) — subscribing to real-time events (console, cpu, room objects)
 
-## Installing the Starter Kit
-
-Run this in an empty directory to download the starter files:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/therealpickle/screeps-private-server/main/scripts/install-player-kit.sh | bash
-```
-
-Existing files are never overwritten — the script skips them and tells you what it skipped. To pull down tooling updates later without touching your code:
-
-```bash
-make update-kit
-```
-
-**How the kit/player split works:** managed files (`Makefile.kit`, `CLAUDE.kit.md`, Claude skills) are always overwritten on update. Your `Makefile` and `CLAUDE.md` are created once and never touched again — add your own targets and bot context there. `Makefile` includes `Makefile.kit` and `CLAUDE.md` imports `CLAUDE.kit.md` automatically.
-
 ## Prerequisites
 
-- `node`/`npm` installed.
-- Screeps purchased on Steam.
+- `node`/`npm` installed
+- Screeps purchased on Steam
 - Obtain from administrator:
   - `<SERVER_ADDRESS>`
   - `<SERVER_PASSWORD>`
@@ -55,13 +37,9 @@ The `picklenet` server adds a few extra features above the base game:
 
 1. A web UI for basic visualization at `http://<SERVER_ADDRESS>:21025/visualizer`
 2. An auth system to push code
-3. A tool API with live room state streaming — see [screepsmod-picklenet](../screepsmod-picklenet/README.md) for full docs
+3. A tool API with live room state streaming — see the [screepsmod-picklenet README](https://github.com/therealpickle/screeps-private-server/blob/main/screepsmod-picklenet/README.md) for full docs
 
 > **Note:** The Screeps server also has a built-in [WebSocket API](https://github.com/screepers/node-screeps-api/blob/master/docs/Websocket_endpoints.md) for subscribing to room updates. If you're already using `screeps-api` for code deployment, that's a natural fit. The picklenet SSE endpoint is a simpler alternative for quick scripts that don't need the full library.
-
-### API Access
-
-1. Provide your server username (`<USERNAME>`) to the admin and you will receive `<PASSWORD>`.
 
 ## Changing Your Password
 
@@ -71,101 +49,48 @@ Alternatively, ask the server admin to reset/set it for you.
 
 ## Setting Up a Code Repository
 
-I'd recommend setting up a git repo for your code and I run under the assumption
-you have somewhere. Starter files may include Github specific functionality.
-
-Additionally, I've made a few shortcuts to ease the setups using Makefiles, because I love them.
-
-### With the Makefile (recommended)
-
-#### 1. Copy the starter files
+### 1. Create a git repo and install the starter kit
 
 ```bash
-cp -r /path/to/screeps-private-server/player_starter_pack/{Makefile,package.json,.gitignore,default} .
+mkdir my-screeps-bot && cd my-screeps-bot
+git init
+curl -fsSL https://raw.githubusercontent.com/therealpickle/screeps-private-server/main/scripts/install-player-kit.sh | bash
 ```
 
-#### 2. Install dependencies
+### 2. Install dependencies
 
 ```bash
 make install
 ```
 
-#### 3. Generate `.screeps.yml`
+### 3. Generate `.screeps.yml`
 
 ```bash
 make init-screeps-yml
 ```
 
-> Don't commit this file — it contains your password! It's in .gitignore already.
+Open `.screeps.yml` and fill in `<SERVER_ADDRESS>`, `<USERNAME>`, and `<PASSWORD>`.
 
-Then open `.screeps.yml` and fill in `<SERVER_ADDRESS>`, `<USERNAME>`, and `<PASSWORD>`.
-Additionally, you might want to update the `private` server name to something more
-convenient/clear. You can add other servers, such as a local instance of the server setup from
-this repo, or a server started from the game. Useful for deploying to for testing.
+> Don't commit this file — it contains your password. It's already in `.gitignore`.
 
-
-#### 4. Deploy
+### 4. Deploy
 
 ```bash
-make deploy-private # or deploy-my-cool-server-name
+make deploy-private
 ```
 
-#### 5. Verify
+### 5. Verify
 
 Open the Screeps client, go to the **Script** tab, and confirm your code is there.
-If your spawn is placed, it will start running on the next tick. Error messages are
-on the Console.
+If your spawn is placed, it will start running on the next tick. Error messages appear on the Console.
 
 ---
 
-### Manual Setup
-
-#### 1. Add `screeps-api` to your project
-
-Create a `package.json`:
-
-```json
-{
-  "name": "my-screeps-bot",
-  "version": "1.0.0",
-  "private": true,
-  "devDependencies": {
-    "screeps-api": "^1.16.1"
-  }
-}
-```
-
-Then install:
-```bash
-npm install
-```
-
-#### 2. Configure deployment
-
-Create a `.screeps.yml` file in the root of your repo:
-
-```yaml
-servers:
-  private:
-    host: <SERVER_ADDRESS>
-    port: 21025
-    http: true
-    username: <USERNAME>
-    password: <PASSWORD>
-    branch: default
-```
-
-> Don't commit this file — it contains your password. Add `.screeps.yml` and `node_modules/` to `.gitignore`.
-
-#### 3. Deploy
+### Without the Makefile
 
 ```bash
 npx screeps-api upload --server private default/*.js
 ```
-
-#### 4. Verify
-
-Open the Screeps client, go to the **Script** tab, and confirm your code is there. If your spawn is placed, it will start running on the next tick.
 
 ## Getting an API Token
 
@@ -184,7 +109,7 @@ Returns:
 
 Use the token in subsequent requests with the header `X-Token: <TOKEN>`.
 
-> If this returns `Unauthorized` instead of a token, it's a sign you've hit the known auth issue described in [First Time In](#first-time-in) — ask the server admin to reset your password.
+> If this returns `Unauthorized`, ask the server admin to reset your password.
 
 ## Deploying Code from GitHub Actions
 
@@ -223,7 +148,7 @@ jobs:
               branch: default
           EOF
 
-      - run: make deploy
+      - run: make deploy-private
 ```
 
 Then add your credentials as GitHub Actions secrets in your repo under **Settings → Secrets and variables → Actions**:
@@ -234,11 +159,9 @@ Then add your credentials as GitHub Actions secrets in your repo under **Setting
 
 ## Running a Local Test Server
 
-Before pushing code to the shared server, you can run an identical server on your own machine. Follow the server setup in this repo's [README](../README.md) to get a local instance running, then continue below.
+Before pushing code to the shared server, you can run an identical server on your own machine. See the [server setup guide](https://github.com/therealpickle/screeps-private-server/blob/main/README.md) to get a local instance running, then continue below.
 
 ### 1. Add a local entry to `.screeps.yml`
-
-In your bot repo, add a `local` server alongside your existing `private` entry:
 
 ```yaml
 servers:
@@ -272,10 +195,10 @@ servers:
 make deploy-local
 ```
 
-Your code will run on the local server. Once satisfied, deploy to the shared server:
+Once satisfied, deploy to the shared server:
 
 ```bash
-make deploy
+make deploy-private
 ```
 
 ## Alternate Languages
@@ -297,7 +220,3 @@ Anything that compiles to WebAssembly (Go, Swift, Zig, etc.) is theoretically po
 
 - This is a private server — the in-game tutorial and official shard content do not apply
 - If you can see the map but clicking does nothing, the simulation may be paused — let the admin know
-
-<!-- Created with Claude Code (claude.ai/code) -->
-
-<!-- Created with Claude Code (claude.ai/code) -->
