@@ -3,7 +3,7 @@
 -include .env
 export
 
-.PHONY: start stop restart rebuild update staging-wipe init-map purge-cache logs cli listusers set-user-pass set-tick-rate staging-user deleteuser spawn-user setup-staging teardown-staging _verify_user
+.PHONY: start stop restart rebuild update staging-wipe init-map purge-cache logs cli listusers set-user-pass set-tick-rate staging-user deleteuser spawn-user setup-staging teardown-staging _verify_user test-picklenet
 
 # Start the server in the background (always builds the custom image first)
 start:
@@ -62,6 +62,10 @@ cli:
 # Reload config.yml without restarting the server
 reload:
 	echo 'utils.reloadConfig()' | docker compose exec -T screeps cli
+
+# Run screepsmod-picklenet unit tests
+test-picklenet:
+	npm test --prefix screepsmod-picklenet
 
 # Set tick duration temporarily (not persistent): make set-tick-rate MS=500
 set-tick-rate:

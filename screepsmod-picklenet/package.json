@@ -2,5 +2,8 @@
   "name": "screepsmod-picklenet",
   "version": "1.0.0",
   "description": "Picklenet server mod - player-triggered spawn via Game.picklenet API",
-  "main": "index.js"
+  "main": "index.js",
+  "scripts": {
+    "test": "node --test test/backend.test.js"
+  }
 }

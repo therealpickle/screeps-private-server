@@ -6,6 +6,7 @@
 
 - Always ask before committing or pushing — never do it automatically after making changes.
 - Every file you create or edit should have a comment at the top and bottom indicating it was created with Claude Code. Use the appropriate comment syntax for the file type (e.g. `<!-- Created with Claude Code (claude.ai/code) -->` for HTML/Markdown, `# Created with Claude Code (claude.ai/code)` for shell/YAML/Python, `// Created with Claude Code (claude.ai/code)` for JS).
+- `screepsmod-picklenet` must not depend on `screepsmod-visualizer`. The dependency is one-way: visualizer may use picklenet, not the reverse.
 
 ## What works
 
