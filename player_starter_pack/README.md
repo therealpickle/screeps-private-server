@@ -220,6 +220,25 @@ Once satisfied, deploy to the shared server:
 make deploy-private
 ```
 
+#### 4. Speed up the tick rate (optional)
+
+The default tick duration is 1000ms. For faster iteration, lower it from the server directory:
+
+```bash
+make set-tick-rate MS=200
+```
+
+To make it persistent, set `tickRate` in `config.yml` and reload:
+
+```yaml
+serverConfig:
+  tickRate: 200
+```
+
+```js
+utils.reloadConfig()
+```
+
 ## Alternate Languages
 
 JavaScript is the only officially supported language, but the community has tooling for several
