@@ -36,7 +36,6 @@ Edit `.env` and set the following variables:
 | Variable | Required | Description |
 |---|---|---|
 | `STEAM_KEY` | Yes | Steam API key from https://steamcommunity.com/dev/apikey |
-| `SERVER_PASSWORD` | No | If set, players must enter this when connecting via the Steam client |
 
 ### 4. Configure mods
 
@@ -98,6 +97,24 @@ This server runs two custom mods beyond the standard screepsmod stack:
 - View logs: `docker compose logs screeps -f`
 - Stop: `docker compose stop`
 - Full teardown: `docker compose down -v`
+
+## Server Password
+
+To require a password on the connection screen (the field players see when clicking
+**Change server** in the Screeps client), set it in `config.yml`:
+
+```yaml
+auth:
+  password: yourpassword
+```
+
+Then reload without restarting:
+
+```bash
+make reload
+```
+
+To remove the password, delete the `auth.password` line and reload.
 
 ## User Management
 
