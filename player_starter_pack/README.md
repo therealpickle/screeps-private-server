@@ -41,6 +41,8 @@ The `picklenet` server adds a few extra features above the base game:
 2. An auth system to push code
 3. A tool API with live room state streaming — see [screepsmod-picklenet](../screepsmod-picklenet/README.md) for full docs
 
+> **Note:** The Screeps server also has a built-in [WebSocket API](https://github.com/screepers/node-screeps-api/blob/master/docs/Websocket_endpoints.md) for subscribing to room updates. If you're already using `screeps-api` for code deployment, that's a natural fit. The picklenet SSE endpoint is a simpler alternative for quick scripts that don't need the full library.
+
 ### API Access
 
 1. Provide your server username (`<USERNAME>`) to the admin and you will receive `<PASSWORD>`.
