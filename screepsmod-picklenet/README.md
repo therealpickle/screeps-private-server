@@ -1,43 +1,73 @@
-<!-- Created with Claude Code (claude.ai/code) -->
-
 # screepsmod-picklenet
 
-Provides a `Game.picklenet` API surface in every player's sandbox for future
-server-side actions.
+Player-facing tool API for the picklenet private server.
 
 ## Installation
 
-Place the `screepsmod-picklenet` directory alongside your other mods and add it
-to your `config.yml`:
+Add to `config.yml`:
 
 ```yaml
 mods:
   - screepsmod-picklenet
 ```
 
-## Player API
+## In-game API
 
-`Game.picklenet` is available in every player's sandbox. No methods are exposed
-yet — this is a placeholder for future server-side actions callable from bot code.
+`Game.picklenet` is injected into every player sandbox each tick. No methods are
+exposed yet — placeholder for future server-side actions callable from bot code.
+
+## HTTP API
+
+All endpoints use standard Screeps token auth. Get a token via:
+
+```bash
+TOKEN=$(curl -s -X POST "http://<HOST>:21025/api/auth/signin" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"<USERNAME>","password":"<PASSWORD>"}' \
+  | grep -o '"token":"[^"]*"' | cut -d'"' -f4)
+```
+
+### GET /api/picklenet/room-stream
+
+SSE stream of room state — one frame pushed per tick.
+
+```
+GET /api/picklenet/room-stream?rooms=W1N1,W2N2
+X-Token: <token>
+```
+
+**Query params:**
+- `rooms` — comma-separated room names (max 20)
+
+**Response stream:**
+```
+: ok
+
+data: {"tick":12345,"rooms":{"W1N1":[...objects...],"W2N2":[...objects...]}}
+data: {"tick":12346,"rooms":{"W1N1":[...objects...],"W2N2":[...objects...]}}
+```
+
+Objects have the same shape as `/api/game/room-objects` — `type`, `x`, `y`,
+`user`, `store`, etc. `: heartbeat` comments are sent every 15s.
+
+**Errors:**
+- `401` — missing or invalid token
+- `400` — no rooms specified, or more than 20
+- `403` — no permitted rooms (when scope is `own`)
+
+## Configuration
+
+```yaml
+serverConfig:
+  roomStream:
+    scope: any   # 'any' = any authenticated player may subscribe to any room
+                 # 'own' = players may only subscribe to rooms they control
+```
 
 ## Spawning players
 
-Players place their first spawn via the game client as normal. To manually spawn
-a player (e.g. for testing), use the provided script:
+Players place their first spawn via the game client. To manually spawn a player:
 
 ```bash
 make spawn-user USER=username
 ```
-
-Or pipe it directly to the CLI:
-
-```bash
-printf 'var USERNAME="alice";\n' | cat - scripts/spawn-user.js \
-  | docker compose exec -T screeps cli
-```
-
-See `scripts/spawn-user.js` for details on spawn placement logic.
-
-<!-- Created with Claude Code (claude.ai/code) -->
-
-<!-- Created with Claude Code (claude.ai/code) -->

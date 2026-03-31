@@ -33,12 +33,13 @@
 3. Place your first Spawn to begin
 4. Set a password via the web form at `http://<SERVER_ADDRESS>:21025/authmod/password/`
 
-## Pickenet Extras
+## Picklenet Extras
+
 The `picklenet` server adds a few extra features above the base game:
 
-1. A web UI to for a basic visualization.
+1. A web UI for basic visualization at `http://<SERVER_ADDRESS>:21025/visualizer`
 2. An auth system to push code
-3. (Experimental) Additional API endpoints to read the game state.
+3. A tool API with live room state streaming — see [screepsmod-picklenet](../screepsmod-picklenet/README.md) for full docs
 
 ### API Access
 

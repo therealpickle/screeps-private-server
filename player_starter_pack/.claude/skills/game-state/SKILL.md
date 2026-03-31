@@ -70,6 +70,31 @@ curl -s -b /tmp/viz.cookie "http://<HOST>:<PORT>/visualizer/api/rooms-summary" |
 curl -s -b /tmp/viz.cookie "http://<HOST>:<PORT>/visualizer/api/objects?room=<ROOM>" | python3 -m json.tool
 ```
 
+## Picklenet room-stream (SSE, per-tick)
+
+Subscribe to live room state updates — one frame pushed per tick for each subscribed room.
+
+```bash
+TOKEN=$(curl -s -X POST "http://<HOST>:<PORT>/api/auth/signin" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"<USERNAME>","password":"<PASSWORD>"}' \
+  | grep -o '"token":"[^"]*"' | cut -d'"' -f4)
+
+curl -s -N \
+  -H "X-Token: $TOKEN" \
+  "http://<HOST>:<PORT>/api/picklenet/room-stream?rooms=W1N1,W2N2"
+```
+
+Each SSE frame:
+```json
+{"tick":12345,"rooms":{"W1N1":[...objects...],"W2N2":[...objects...]}}
+```
+
+- `rooms` is a comma-separated list of room names (max 20)
+- Objects have the same shape as `/api/game/room-objects` (`type`, `x`, `y`, `user`, `store`, etc.)
+- `: heartbeat` comments are sent every 15s to keep the connection alive
+- Returns `403` if `roomStream.scope` is set to `own` and a requested room isn't owned by the authenticated player
+
 ## Finding the player's rooms
 
 Use `rooms-summary` to find rooms where `controller.user` matches the player's ID (from `users`):

@@ -69,6 +69,13 @@ Then in the CLI:
 setPassword("username", "password")
 ```
 
+## Custom Features
+
+This server runs two custom mods beyond the standard screepsmod stack:
+
+- [screepsmod-visualizer](screepsmod-visualizer/README.md) — web UI and session-authenticated game state API
+- [screepsmod-picklenet](screepsmod-picklenet/README.md) — player tool API (SSE room stream, `Game.picklenet`)
+
 ## Makefile Reference
 
 | Command | Description |
