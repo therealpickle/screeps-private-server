@@ -9,6 +9,20 @@
 - [Screeps Server HTTP API Endpoints](https://github.com/screepers/node-screeps-api/blob/master/docs/Endpoints.md) — community-maintained docs for the `/api/` routes
 - [Screeps Server WebSocket Endpoints](https://github.com/screepers/node-screeps-api/blob/master/docs/Websocket_endpoints.md) — subscribing to real-time events (console, cpu, room objects)
 
+## Installing the Starter Kit
+
+Run this in an empty directory to download the starter files:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/therealpickle/screeps-private-server/main/scripts/install-player-kit.sh | bash
+```
+
+Existing files are never overwritten — the script skips them and tells you what it skipped. To pull down tooling updates later (Makefile, Claude skills) without touching your code:
+
+```bash
+make update-kit
+```
+
 ## Prerequisites
 
 - `node`/`npm` installed.
