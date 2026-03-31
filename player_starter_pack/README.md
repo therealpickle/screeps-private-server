@@ -10,6 +10,7 @@
 ## Prerequisites
 
 - `node`/`npm` installed
+- `make` installed
 - Screeps purchased on Steam
 - Obtain from administrator:
   - `<SERVER_ADDRESS>`
