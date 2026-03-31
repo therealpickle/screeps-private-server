@@ -1,6 +1,6 @@
 ---
 name: game-state
-description: Read live Screeps game state from the server — use when asked about creeps, structures, rooms, resources, energy, spawns, or anything currently happening in the game
+description: Read live Screeps game state or run console commands on the server — use when asked about creeps, structures, rooms, resources, energy, spawns, anything currently happening in the game, or when asked to execute something in the game sandbox
 allowed-tools: Bash
 ---
 
@@ -113,6 +113,19 @@ Each SSE frame:
 ### WebSocket subscriptions (good for bots/apps using screeps-api)
 
 The server's built-in WebSocket API supports per-tick room subscriptions. If the project already uses `screeps-api` for code deployment, this is the natural fit — see the [WebSocket endpoints docs](https://github.com/screepers/node-screeps-api/blob/master/docs/Websocket_endpoints.md).
+
+## Running console commands
+
+Execute a JS expression in your game sandbox via the API. Output appears in the
+console (and in `console-stream` if connected) — there is no synchronous return value.
+
+```bash
+curl -s -X POST "http://<HOST>:<PORT>/api/user/console" \
+  -H "X-Token: $TOKEN" \
+  -H "X-Username: <USERNAME>" \
+  -H "Content-Type: application/json" \
+  -d '{"expression":"Game.spawns"}'
+```
 
 ## Finding the player's rooms
 
