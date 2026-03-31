@@ -27,6 +27,33 @@ TOKEN=$(curl -s -X POST "http://<HOST>:21025/api/auth/signin" \
   | grep -o '"token":"[^"]*"' | cut -d'"' -f4)
 ```
 
+### GET /api/picklenet/console-stream
+
+SSE stream of the authenticated player's console output (log and error).
+
+```
+GET /api/picklenet/console-stream
+X-Token: <token>
+```
+
+**Response stream:**
+```
+: ok
+
+data: {"ts":1234567890123,"text":"hello from my bot","type":"log"}
+data: {"ts":1234567890456,"text":"something went wrong","type":"error"}
+```
+
+- `ts` — Unix timestamp (ms) when the message was received server-side
+- `type` — `"log"` or `"error"`
+- On connect, the last 200 messages for the authenticated user are replayed
+- `: heartbeat` comments are sent every 15s
+
+**Errors:**
+- `401` — missing or invalid token
+
+---
+
 ### GET /api/picklenet/room-stream
 
 SSE stream of room state — one frame pushed per tick.

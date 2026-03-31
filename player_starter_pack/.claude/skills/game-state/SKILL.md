@@ -93,6 +93,23 @@ Each SSE frame:
 - Objects have the same shape as `/api/game/room-objects` (`type`, `x`, `y`, `user`, `store`, etc.)
 - `: heartbeat` comments every 15s
 
+### Picklenet console-stream (SSE — your bot's console output)
+
+```bash
+curl -s -N \
+  -H "X-Token: $TOKEN" \
+  "http://<HOST>:<PORT>/api/picklenet/console-stream"
+```
+
+Each SSE frame:
+```json
+{"ts":1234567890123,"text":"hello from my bot","type":"log"}
+```
+
+- `type` is `"log"` or `"error"`
+- Last 200 messages replayed on connect
+- `: heartbeat` comments every 15s
+
 ### WebSocket subscriptions (good for bots/apps using screeps-api)
 
 The server's built-in WebSocket API supports per-tick room subscriptions. If the project already uses `screeps-api` for code deployment, this is the natural fit — see the [WebSocket endpoints docs](https://github.com/screepers/node-screeps-api/blob/master/docs/Websocket_endpoints.md).

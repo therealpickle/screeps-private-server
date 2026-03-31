@@ -4,12 +4,10 @@
  *
  * Runs in the backend process. Registers Express routes under /api/picklenet/.
  *
- * Endpoint:
+ * Endpoints:
  *   GET /api/picklenet/room-stream?rooms=W1N1,W2N2
+ *   GET /api/picklenet/console-stream
  *   X-Token: <token from /api/auth/signin>
- *
- *   SSE stream — one frame per tick:
- *   data: {"tick":12345,"rooms":{"W1N1":[...objects...],"W2N2":[...]}}
  *
  * Auth:
  *   X-Token header validated via env.get('auth_<token>') — the key written
@@ -18,10 +16,6 @@
  * Scope (configured via config.yml serverConfig.roomStream.scope):
  *   "any"  — authenticated players may subscribe to any room (default)
  *   "own"  — only rooms whose controller is owned by the requesting player
- *
- * TODO: add a console-log SSE endpoint here (mirroring /visualizer/api/console-log)
- *   with X-Token auth for tool/script access. The visualizer keeps its cookie-based
- *   version since browsers can't send custom headers with native EventSource.
  */
 
 const MAX_ROOMS = 20; // per connection cap
@@ -70,9 +64,28 @@ module.exports = function setupBackend(config) {
         return rooms.filter(r => owned.has(r));
     }
 
-    // ---- SSE clients ----
+    // ---- Room-stream SSE clients ----
     // Each entry: { res, rooms: Set<string>, userId }
     const clients = [];
+
+    // ---- Console-stream SSE clients + buffer ----
+    const consoleClients = [];
+    const consoleBuffer  = [];
+    const MAX_CONSOLE_BUFFER = 200;
+
+    function pushConsoleMsg(msg) {
+        consoleBuffer.push(msg);
+        if (consoleBuffer.length > MAX_CONSOLE_BUFFER) consoleBuffer.shift();
+        const frame = 'data: ' + JSON.stringify({ ts: msg.ts, text: msg.text, type: msg.type }) + '\n\n';
+        for (let i = consoleClients.length - 1; i >= 0; i--) {
+            if (consoleClients[i].userId !== msg.userId) continue;
+            try {
+                consoleClients[i].res.write(frame);
+            } catch(e) {
+                consoleClients.splice(i, 1);
+            }
+        }
+    }
 
     // ---- Tick handler ----
     // Called on each roomsDone pubsub event.
@@ -127,6 +140,27 @@ module.exports = function setupBackend(config) {
 
     setTimeout(startTickSignal, 2000);
 
+    // ---- Subscribe to console output ----
+    // 'user:*/console' is published by screeps-backend-local after each tick
+    // with per-user console messages. Same source as /visualizer/api/console-log.
+
+    function startConsolePubSub() {
+        pubsub.subscribe('user:*/console', function(data) {
+            try {
+                const msg = typeof data === 'string' ? JSON.parse(data) : data;
+                const logs   = (msg.messages && msg.messages.log)   || [];
+                const errors = (msg.messages && msg.messages.error) || [];
+                if (!logs.length && !errors.length) return;
+                const userId = msg.userId;
+                const ts = Date.now();
+                for (const line of logs)   pushConsoleMsg({ ts, userId, text: line, type: 'log' });
+                for (const line of errors) pushConsoleMsg({ ts, userId, text: line, type: 'error' });
+            } catch(e) {}
+        });
+    }
+
+    setTimeout(startConsolePubSub, 2000);
+
     // ---- Express route ----
 
     config.backend.on('expressPreConfig', function(app) {
@@ -171,6 +205,36 @@ module.exports = function setupBackend(config) {
                 clearInterval(heartbeat);
                 const i = clients.indexOf(client);
                 if (i >= 0) clients.splice(i, 1);
+            });
+        });
+
+        app.get('/api/picklenet/console-stream', requireXToken, function(req, res) {
+            req.socket.setTimeout(0);
+            req.socket.setNoDelay(true);
+            res.setHeader('Content-Type', 'text/event-stream');
+            res.setHeader('Cache-Control', 'no-cache');
+            res.setHeader('Connection', 'keep-alive');
+            res.setHeader('X-Accel-Buffering', 'no');
+            res.flushHeaders();
+            res.write(': ok\n\n');
+
+            // Replay buffered messages for this user
+            for (const msg of consoleBuffer) {
+                if (msg.userId !== req.userId) continue;
+                res.write('data: ' + JSON.stringify({ ts: msg.ts, text: msg.text, type: msg.type }) + '\n\n');
+            }
+
+            const client = { res, userId: req.userId };
+            consoleClients.push(client);
+
+            const heartbeat = setInterval(function() {
+                try { res.write(': heartbeat\n\n'); } catch(e) {}
+            }, 15000);
+
+            req.on('close', function() {
+                clearInterval(heartbeat);
+                const i = consoleClients.indexOf(client);
+                if (i >= 0) consoleClients.splice(i, 1);
             });
         });
     });
