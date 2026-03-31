@@ -63,11 +63,3 @@ serverConfig:
     scope: any   # 'any' = any authenticated player may subscribe to any room
                  # 'own' = players may only subscribe to rooms they control
 ```
-
-## Spawning players
-
-Players place their first spawn via the game client. To manually spawn a player:
-
-```bash
-make spawn-user USER=username
-```

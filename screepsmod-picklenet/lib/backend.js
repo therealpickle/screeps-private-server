@@ -18,6 +18,10 @@
  * Scope (configured via config.yml serverConfig.roomStream.scope):
  *   "any"  — authenticated players may subscribe to any room (default)
  *   "own"  — only rooms whose controller is owned by the requesting player
+ *
+ * TODO: add a console-log SSE endpoint here (mirroring /visualizer/api/console-log)
+ *   with X-Token auth for tool/script access. The visualizer keeps its cookie-based
+ *   version since browsers can't send custom headers with native EventSource.
  */
 
 const MAX_ROOMS = 20; // per connection cap
