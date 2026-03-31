@@ -37,10 +37,13 @@ echo "Screeps player kit installer"
 echo "============================"
 
 # Tooling — always update so the server admin can push improvements
-download "Makefile"                                "Makefile"                                1
+download "Makefile.kit"                            "Makefile.kit"                           1
+download "CLAUDE.kit.md"                           "CLAUDE.kit.md"                          1
 download ".claude/skills/game-state/SKILL.md"     ".claude/skills/game-state/SKILL.md"     1
 
 # Player files — create only; players own these after first install
+download "Makefile"                               "Makefile"                                0
+download "CLAUDE.md"                              "CLAUDE.md"                               0
 download "package.json"                           "package.json"                            0
 download ".gitignore"                             ".gitignore"                              0
 download "default/main.js"                        "default/main.js"                         0

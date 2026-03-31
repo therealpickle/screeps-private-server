@@ -17,11 +17,13 @@ Run this in an empty directory to download the starter files:
 curl -fsSL https://raw.githubusercontent.com/therealpickle/screeps-private-server/main/scripts/install-player-kit.sh | bash
 ```
 
-Existing files are never overwritten — the script skips them and tells you what it skipped. To pull down tooling updates later (Makefile, Claude skills) without touching your code:
+Existing files are never overwritten — the script skips them and tells you what it skipped. To pull down tooling updates later without touching your code:
 
 ```bash
 make update-kit
 ```
+
+**How the kit/player split works:** managed files (`Makefile.kit`, `CLAUDE.kit.md`, Claude skills) are always overwritten on update. Your `Makefile` and `CLAUDE.md` are created once and never touched again — add your own targets and bot context there. `Makefile` includes `Makefile.kit` and `CLAUDE.md` imports `CLAUDE.kit.md` automatically.
 
 ## Prerequisites
 

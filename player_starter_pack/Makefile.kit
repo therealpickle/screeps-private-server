@@ -1,0 +1,17 @@
+# Screeps player kit — managed tooling. Do not edit.
+# Update with: make update-kit
+
+.PHONY: install init-screeps-yml update-kit deploy-%
+
+install:
+	npm install
+
+init-screeps-yml:
+	@printf 'servers:\n  private:\n    host: <SERVER_ADDRESS>\n    port: 21025\n    http: true\n    username: <USERNAME>\n    password: <PASSWORD>\n    branch: default\n' > .screeps.yml
+	@echo "Created .screeps.yml — fill in <SERVER_ADDRESS>, <USERNAME>, and <PASSWORD>"
+
+update-kit:
+	curl -fsSL https://raw.githubusercontent.com/therealpickle/screeps-private-server/main/scripts/install-player-kit.sh | bash
+
+deploy-%:
+	npx screeps-api upload --server $* default/*.js
