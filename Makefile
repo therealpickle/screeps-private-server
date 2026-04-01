@@ -3,7 +3,30 @@
 -include .env
 export
 
-.PHONY: start stop restart status rebuild update init-map purge-cache logs cli listusers set-user-pass set-tick-rate staging-setup staging-teardown staging-wipe staging-user deleteuser spawn-user _verify_user test-picklenet
+.PHONY: build start stop restart status rebuild update init-map purge-cache logs cli listusers set-user-pass set-tick-rate staging-setup teardown staging-wipe staging-user deleteuser spawn-user _verify_user test-picklenet
+
+# Full setup from a fresh clone: creates .env if missing, builds image, starts server, initializes database and map
+build: _verify_user
+	@if [ ! -f .env ]; then \
+		cp .env.sample .env; \
+		echo ""; \
+		echo "Created .env from .env.sample."; \
+		echo "Fill in your Steam API key, then re-run: make build"; \
+		echo "  https://steamcommunity.com/dev/apikey"; \
+		echo ""; \
+		exit 1; \
+	fi
+	@if [ -z "$(STEAM_KEY)" ]; then \
+		echo "Error: STEAM_KEY is not set in .env"; \
+		echo "  Get your key at https://steamcommunity.com/dev/apikey"; \
+		exit 1; \
+	fi
+	$(MAKE) start
+	@echo "Waiting for server CLI to be ready..."
+	@until echo 'true' | docker compose exec -T screeps cli > /dev/null 2>&1; do sleep 2; done
+	$(MAKE) init-map
+	@echo ""
+	@echo "=== Server ready at http://localhost:21025 ==="
 
 # Start the server in the background (always builds the custom image first)
 start:
@@ -146,8 +169,8 @@ staging-setup: _verify_user start
 	@echo "Deploy with: make staging-deploy  (from player_starter_pack/, or from your project.)"
 
 # Stops the server and removes containers, volumes, and images
-staging-teardown:
-	@test "$(NUKE)" = "yes" || (echo "Safety check: run as 'make staging-teardown NUKE=yes'"; exit 1)
+teardown:
+	@test "$(NUKE)" = "yes" || (echo "Safety check: run as 'make teardown NUKE=yes'"; exit 1)
 	docker compose down --volumes --rmi all
 
 # Wipe all data volumes and remove the containers
