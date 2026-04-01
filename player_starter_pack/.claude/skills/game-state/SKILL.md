@@ -6,12 +6,26 @@ allowed-tools: Bash
 
 # Screeps Game State
 
-## Server config
+## Server selection
 
 Current `.screeps.yml`:
 !`cat .screeps.yml 2>/dev/null || echo "(no .screeps.yml found — ask the user to run: make init-screeps-yml)"`
 
-Use the `private` server by default (or whichever the user specifies). Extract `host`, `port`, `username`, and `password` from the relevant server block above.
+Available servers (parsed from above):
+!`python3 -c "import re; txt=open('.screeps.yml').read(); servers=re.findall(r'^\s{2}(\w[\w-]*):', txt, re.M); print(', '.join(servers))" 2>/dev/null || echo "(unable to parse)"`
+
+Active server:
+!`cat .active-server 2>/dev/null || python3 -c "import re; txt=open('.screeps.yml').read(); s=re.findall(r'^\s{2}(\w[\w-]*):', txt, re.M); print(s[0] if s else 'private')" 2>/dev/null || echo "private"`
+
+**If the user specified a server** (e.g. `/game-state staging` or "use the staging server"), write that name to `.active-server` now:
+```bash
+echo "<SERVER_NAME>" > .active-server
+```
+Then use that server for all operations below.
+
+**Otherwise**, use the active server shown above.
+
+Extract `host`, `port`, `username`, and `password` from the matching server block in `.screeps.yml`.
 
 ## Authentication
 
