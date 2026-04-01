@@ -3,7 +3,7 @@
 -include .env
 export
 
-.PHONY: start stop restart rebuild update staging-wipe init-map purge-cache logs cli listusers set-user-pass set-tick-rate staging-user deleteuser spawn-user setup-staging teardown-staging _verify_user test-picklenet
+.PHONY: start stop restart status rebuild update init-map purge-cache logs cli listusers set-user-pass set-tick-rate staging-setup staging-teardown staging-wipe staging-user deleteuser spawn-user _verify_user test-picklenet
 
 # Start the server in the background (always builds the custom image first)
 start:
@@ -17,6 +17,10 @@ stop:
 # Restart all containers
 restart:
 	docker compose restart
+
+# Show container status
+status:
+	docker compose ps
 
 # Pull latest code and rebuild
 update:
@@ -126,7 +130,7 @@ STAGING_HOST ?= localhost
 	fi
 
 # Initializes the server, and sets up the map
-setup-staging: _verify_user start
+staging-setup: _verify_user start
 	@echo "Waiting for server to be ready..."
 	@until bash -c 'echo >/dev/tcp/localhost/21025' 2>/dev/null; do sleep 2; done
 	@echo 'system.resetAllData()' | docker compose exec -T screeps cli
@@ -139,16 +143,16 @@ setup-staging: _verify_user start
 	@echo ""
 	@printf 'servers:\n  staging:\n    host: $(STAGING_HOST)\n    port: 21025\n    http: true\n    username: $(STAGING_USER)\n    password: $(STAGING_PASS)\n    branch: default\n'
 	@echo ""
-	@echo "Deploy with: make deploy-staging  (from player_starter_pack/, or from your project.)"
+	@echo "Deploy with: make staging-deploy  (from player_starter_pack/, or from your project.)"
 
 # Stops the server and removes containers, volumes, and images
-teardown-staging:
-	@test "$(NUKE)" = "yes" || (echo "Safety check: run as 'make teardown-staging NUKE=yes'"; exit 1)
+staging-teardown:
+	@test "$(NUKE)" = "yes" || (echo "Safety check: run as 'make staging-teardown NUKE=yes'"; exit 1)
 	docker compose down --volumes --rmi all
 
 # Wipe all data volumes and remove the containers
 # Requires WIPE=yes to prevent accidental data loss: make staging-wipe WIPE=yes
-wipe-staging:
+staging-wipe:
 	@test "$(WIPE)" = "yes" || (echo "Safety check: run as 'make staging-wipe WIPE=yes'"; exit 1)
 	docker compose down -v
 
