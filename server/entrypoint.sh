@@ -1,7 +1,7 @@
 #!/bin/sh
 # Created with Claude Code (claude.ai/code)
 set -e
-envsubst '${STATS_KEY}' < /screeps/config.yml.template > /screeps/config.yml
+cp /screeps/config.yml.template /screeps/config.yml
 rm -f /screeps/storage.sock
 
 # Patch the storage module to remove a stale socket and retry on EADDRINUSE.
