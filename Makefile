@@ -54,9 +54,15 @@ update:
 INIT_MAP_KEY ?= random_1x1
 init-map:
 	@echo 'system.resetAllData()' | docker compose exec -T screeps cli
+	@echo "Waiting for server to recover after reset..."
+	@sleep 3
+	@until echo 'true' | docker compose exec -T screeps cli > /dev/null 2>&1; do sleep 2; done
 	@echo 'utils.importMap("$(INIT_MAP_KEY)")' | docker compose exec -T screeps cli
 	@sleep 3
 	@echo 'system.resumeSimulation()' | docker compose exec -T screeps cli
+	@echo "Restarting screeps to reload map data..."
+	docker compose restart screeps
+	@until echo 'true' | docker compose exec -T screeps cli > /dev/null 2>&1; do sleep 2; done
 
 # Pull latest base images, rebuild custom image, and restart; also purges CDN cache if configured
 rebuild:
