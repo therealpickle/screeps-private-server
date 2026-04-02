@@ -58,32 +58,6 @@ curl -s -H "X-Token: $TOKEN" "http://<HOST>:<PORT>/api/game/room-terrain?room=<R
 
 Note: `/api/auth/me` and `/api/game/user/overview` are not implemented on private servers.
 
-## Visualizer API endpoints
-
-The server also exposes a visualizer API. Auth uses a session cookie:
-
-```bash
-# Login (one-time per session)
-curl -s -c /tmp/viz.cookie -X POST "http://<HOST>:<PORT>/visualizer/login" \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "username=<USERNAME>&password=<PASSWORD>&next=/visualizer" -o /dev/null
-```
-
-**All users** (IDs and usernames):
-```bash
-curl -s -b /tmp/viz.cookie "http://<HOST>:<PORT>/visualizer/api/users" | python3 -m json.tool
-```
-
-**All rooms summary** (sources, controller owner/level, mineral per room):
-```bash
-curl -s -b /tmp/viz.cookie "http://<HOST>:<PORT>/visualizer/api/rooms-summary" | python3 -m json.tool
-```
-
-**Objects in a room** (same as Screeps API but auth via cookie):
-```bash
-curl -s -b /tmp/viz.cookie "http://<HOST>:<PORT>/visualizer/api/objects?room=<ROOM>" | python3 -m json.tool
-```
-
 ## Live room state (per-tick)
 
 Two options depending on use case:
@@ -193,19 +167,3 @@ curl -s -X POST "http://<HOST>:<PORT>/api/user/console" \
   -d '{"expression":"Game.spawns"}'
 ```
 
-## Finding the player's rooms
-
-Use `rooms-summary` to find rooms where `controller.user` matches the player's ID (from `users`):
-
-```bash
-curl -s -b /tmp/viz.cookie "http://<HOST>:<PORT>/visualizer/api/rooms-summary" \
-  | python3 -c "
-import json, sys
-data = json.load(sys.stdin)
-uid = '<USER_ID>'
-for room, info in data['summary'].items():
-    c = info.get('controller')
-    if c and c.get('user') == uid:
-        print(room, 'RCL', c.get('level'))
-"
-```
