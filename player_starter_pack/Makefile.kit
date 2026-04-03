@@ -17,13 +17,13 @@ init-screeps-yml:
 BRANCH ?= main
 
 update-kit:
-	curl -fsSL https://raw.githubusercontent.com/therealpickle/screeps-private-server/$(BRANCH)/player_starter_pack/.claude/install-player-kit.sh | bash -s -- --branch $(BRANCH)
+	curl -fsSL https://raw.githubusercontent.com/therealpickle/screeps-private-server/$(BRANCH)/player_starter_pack/install-player-kit.sh | bash -s -- --branch $(BRANCH)
 
 # Sync kit from a local server repo checkout instead of GitHub.
 # Requires SERVER_REPO_PATH in .env (e.g. SERVER_REPO_PATH=/home/user/repos/screeps-private-server)
 update-kit-local:
 	@test -n "$(SERVER_REPO_PATH)" || (echo "Error: SERVER_REPO_PATH not set in .env"; exit 1)
-	bash $(SERVER_REPO_PATH)/player_starter_pack/.claude/install-player-kit.sh --local $(SERVER_REPO_PATH)
+	bash $(SERVER_REPO_PATH)/player_starter_pack/install-player-kit.sh --local $(SERVER_REPO_PATH)
 
 deploy-%:
 	npx screeps-api upload --server $* default/*.js

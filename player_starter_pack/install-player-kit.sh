@@ -2,13 +2,13 @@
 # Downloads the Screeps player starter kit into the current directory.
 #
 # Fresh install (creates missing files, updates tooling):
-#   curl -fsSL https://raw.githubusercontent.com/therealpickle/screeps-private-server/main/scripts/install-player-kit.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/therealpickle/screeps-private-server/main/player_starter_pack/install-player-kit.sh | bash
 #
 # Update tooling only (from an existing kit via make):
 #   make update-kit
 #
 # Update tooling from a local server repo checkout:
-#   bash /path/to/screeps-private-server/scripts/install-player-kit.sh --local /path/to/screeps-private-server
+#   bash /path/to/screeps-private-server/player_starter_pack/install-player-kit.sh --local /path/to/screeps-private-server
 #   (or via: make update-kit-local  — requires SERVER_REPO_PATH in .env)
 
 set -e
@@ -72,8 +72,8 @@ if [ -n "$LOCAL_PATH" ]; then
     copy_local ".claude/skills/game-state/SKILL.md"         ".claude/skills/game-state/SKILL.md"          1
     copy_local ".mcp.json"                                   ".mcp.json"                                   1
     copy_local ".claude/mcp-launcher.sh"                     ".claude/mcp-launcher.sh"                     1
-    copy_local ".claude/install-player-kit.sh"               ".claude/install-player-kit.sh"               1
-    chmod +x ".claude/mcp-launcher.sh" ".claude/install-player-kit.sh"
+    copy_local "install-player-kit.sh"                       "install-player-kit.sh"                       1
+    chmod +x ".claude/mcp-launcher.sh" "install-player-kit.sh"
 
     copy_local "Makefile"                               "Makefile"                                0
     copy_local "CLAUDE.md"                              "CLAUDE.md"                               0
@@ -148,8 +148,8 @@ download "CLAUDE.kit.md"                               "CLAUDE.kit.md"          
 download ".claude/skills/game-state/SKILL.md"          ".claude/skills/game-state/SKILL.md"          1
 download ".mcp.json"                                   ".mcp.json"                                   1
 download ".claude/mcp-launcher.sh"                     ".claude/mcp-launcher.sh"                     1
-download ".claude/install-player-kit.sh"               ".claude/install-player-kit.sh"               1
-chmod +x ".claude/mcp-launcher.sh" ".claude/install-player-kit.sh"
+download "install-player-kit.sh"                       "install-player-kit.sh"                       1
+chmod +x ".claude/mcp-launcher.sh" "install-player-kit.sh"
 
 # Player files — create only; players own these after first install
 download "Makefile"                               "Makefile"                                0
