@@ -46,6 +46,24 @@ if [ -n "$LOCAL_PATH" ]; then
         fi
     }
 
+    merge_local() {
+        src="$1" dst="$2"
+        if [ ! -f "$dst" ]; then
+            mkdir -p "$(dirname "$dst")"
+            cp "$KIT/$src" "$dst"
+            printf '  created  %s\n' "$dst"
+        else
+            added=0
+            while IFS= read -r line; do
+                if [ -n "$line" ] && ! grep -qxF "$line" "$dst"; then
+                    printf '%s\n' "$line" >> "$dst"
+                    added=$((added + 1))
+                fi
+            done < "$KIT/$src"
+            printf '  merged   %s  (%d lines added)\n' "$dst" "$added"
+        fi
+    }
+
     echo "Screeps player kit installer (local)"
     echo "====================================="
 
@@ -59,7 +77,7 @@ if [ -n "$LOCAL_PATH" ]; then
     copy_local "Makefile"                               "Makefile"                                0
     copy_local "CLAUDE.md"                              "CLAUDE.md"                               0
     copy_local "package.json"                           "package.json"                            0
-    copy_local ".gitignore"                             ".gitignore"                              0
+    merge_local ".gitignore"                             ".gitignore"
     copy_local "default/main.js"                        "default/main.js"                         0
 
     echo ""
@@ -93,6 +111,33 @@ download() {
     fi
 }
 
+# Merge a file line-by-line: create if missing, otherwise append only new lines.
+merge_download() {
+    src="$1" dst="$2"
+    tmpfile=$(mktemp)
+    if curl -fsSL "$BASE/$src" -o "$tmpfile"; then
+        if [ ! -f "$dst" ]; then
+            mkdir -p "$(dirname "$dst")"
+            mv "$tmpfile" "$dst"
+            printf '  created  %s\n' "$dst"
+        else
+            added=0
+            while IFS= read -r line; do
+                if [ -n "$line" ] && ! grep -qxF "$line" "$dst"; then
+                    printf '%s\n' "$line" >> "$dst"
+                    added=$((added + 1))
+                fi
+            done < "$tmpfile"
+            rm -f "$tmpfile"
+            printf '  merged   %s  (%d lines added)\n' "$dst" "$added"
+        fi
+    else
+        printf '  FAILED   %s\n' "$dst" >&2
+        rm -f "$tmpfile"
+        return 1
+    fi
+}
+
 echo "Screeps player kit installer"
 echo "============================"
 
@@ -108,7 +153,7 @@ chmod +x "mcp-launcher.sh"
 download "Makefile"                               "Makefile"                                0
 download "CLAUDE.md"                              "CLAUDE.md"                               0
 download "package.json"                           "package.json"                            0
-download ".gitignore"                             ".gitignore"                              0
+merge_download ".gitignore"                       ".gitignore"
 download "default/main.js"                        "default/main.js"                         0
 
 echo ""
