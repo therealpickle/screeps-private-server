@@ -42,7 +42,7 @@ if [ -n "$LOCAL_PATH" ]; then
                 printf '  created  %s\n' "$dst"
             fi
         else
-            printf '  ok       %s\n' "$dst"
+            printf '  skipped  %s  (already exists, ok)\n' "$dst"
         fi
     }
 
@@ -108,7 +108,7 @@ download() {
             return 1
         fi
     else
-        printf '  skipped  %s  (already exists)\n' "$dst"
+        printf '  skipped  %s  (already exists, ok)\n' "$dst"
     fi
 }
 
