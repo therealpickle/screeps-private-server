@@ -67,12 +67,13 @@ if [ -n "$LOCAL_PATH" ]; then
     echo "Screeps player kit installer (local)"
     echo "====================================="
 
-    copy_local "Makefile.kit"                            "Makefile.kit"                           1
-    copy_local "CLAUDE.kit.md"                           "CLAUDE.kit.md"                          1
-    copy_local ".claude/skills/game-state/SKILL.md"     ".claude/skills/game-state/SKILL.md"     1
-    copy_local ".mcp.json"                               ".mcp.json"                              1
-    copy_local ".claude/mcp-launcher.sh"                 ".claude/mcp-launcher.sh"                1
-    chmod +x ".claude/mcp-launcher.sh"
+    copy_local "Makefile.kit"                                 "Makefile.kit"                                1
+    copy_local "CLAUDE.kit.md"                               "CLAUDE.kit.md"                               1
+    copy_local ".claude/skills/game-state/SKILL.md"         ".claude/skills/game-state/SKILL.md"          1
+    copy_local ".mcp.json"                                   ".mcp.json"                                   1
+    copy_local ".claude/mcp-launcher.sh"                     ".claude/mcp-launcher.sh"                     1
+    copy_local ".claude/install-player-kit.sh"               ".claude/install-player-kit.sh"               1
+    chmod +x ".claude/mcp-launcher.sh" ".claude/install-player-kit.sh"
 
     copy_local "Makefile"                               "Makefile"                                0
     copy_local "CLAUDE.md"                              "CLAUDE.md"                               0
@@ -142,12 +143,13 @@ echo "Screeps player kit installer"
 echo "============================"
 
 # Tooling — always update so the server admin can push improvements
-download "Makefile.kit"                            "Makefile.kit"                           1
-download "CLAUDE.kit.md"                           "CLAUDE.kit.md"                          1
-download ".claude/skills/game-state/SKILL.md"     ".claude/skills/game-state/SKILL.md"     1
-download ".mcp.json"                               ".mcp.json"                              1
-download ".claude/mcp-launcher.sh"                 ".claude/mcp-launcher.sh"                1
-chmod +x ".claude/mcp-launcher.sh"
+download "Makefile.kit"                                 "Makefile.kit"                                1
+download "CLAUDE.kit.md"                               "CLAUDE.kit.md"                               1
+download ".claude/skills/game-state/SKILL.md"          ".claude/skills/game-state/SKILL.md"          1
+download ".mcp.json"                                   ".mcp.json"                                   1
+download ".claude/mcp-launcher.sh"                     ".claude/mcp-launcher.sh"                     1
+download ".claude/install-player-kit.sh"               ".claude/install-player-kit.sh"               1
+chmod +x ".claude/mcp-launcher.sh" ".claude/install-player-kit.sh"
 
 # Player files — create only; players own these after first install
 download "Makefile"                               "Makefile"                                0
