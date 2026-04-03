@@ -6,8 +6,59 @@
 #
 # Update tooling only (from an existing kit via make):
 #   make update-kit
+#
+# Update tooling from a local server repo checkout:
+#   bash /path/to/screeps-private-server/scripts/install-player-kit.sh --local /path/to/screeps-private-server
+#   (or via: make update-kit-local  — requires SERVER_REPO_PATH in .env)
 
 set -e
+
+# --- Local mode: copy from a local repo checkout instead of downloading ---
+if [ "$1" = "--local" ]; then
+    LOCAL_PATH="$2"
+    if [ -z "$LOCAL_PATH" ]; then
+        echo "Usage: install-player-kit.sh --local <server-repo-path>" >&2
+        exit 1
+    fi
+    KIT="$LOCAL_PATH/player_starter_pack"
+
+    copy_local() {
+        src="$1" dst="$2" force="$3"
+        if [ "$force" = "1" ] || [ ! -f "$dst" ]; then
+            mkdir -p "$(dirname "$dst")"
+            cp "$KIT/$src" "$dst"
+            if [ "$force" = "1" ]; then
+                printf '  updated  %s\n' "$dst"
+            else
+                printf '  created  %s\n' "$dst"
+            fi
+        else
+            printf '  skipped  %s  (already exists)\n' "$dst"
+        fi
+    }
+
+    echo "Screeps player kit installer (local)"
+    echo "====================================="
+
+    copy_local "Makefile.kit"                            "Makefile.kit"                           1
+    copy_local "CLAUDE.kit.md"                           "CLAUDE.kit.md"                          1
+    copy_local ".claude/skills/game-state/SKILL.md"     ".claude/skills/game-state/SKILL.md"     1
+    copy_local ".mcp.json"                               ".mcp.json"                              1
+    copy_local "mcp-launcher.sh"                         "mcp-launcher.sh"                        1
+    chmod +x "mcp-launcher.sh"
+
+    copy_local "Makefile"                               "Makefile"                                0
+    copy_local "CLAUDE.md"                              "CLAUDE.md"                               0
+    copy_local "package.json"                           "package.json"                            0
+    copy_local ".gitignore"                             ".gitignore"                              0
+    copy_local "default/main.js"                        "default/main.js"                         0
+
+    echo ""
+    echo "Done."
+    exit 0
+fi
+
+# --- Remote mode: download from GitHub ---
 
 BASE="https://raw.githubusercontent.com/therealpickle/screeps-private-server/main/player_starter_pack"
 
@@ -40,6 +91,9 @@ echo "============================"
 download "Makefile.kit"                            "Makefile.kit"                           1
 download "CLAUDE.kit.md"                           "CLAUDE.kit.md"                          1
 download ".claude/skills/game-state/SKILL.md"     ".claude/skills/game-state/SKILL.md"     1
+download ".mcp.json"                               ".mcp.json"                              1
+download "mcp-launcher.sh"                         "mcp-launcher.sh"                        1
+chmod +x "mcp-launcher.sh"
 
 # Player files — create only; players own these after first install
 download "Makefile"                               "Makefile"                                0
@@ -56,3 +110,4 @@ if [ ! -f ".screeps.yml" ]; then
     echo "  make install           # install npm dependencies"
     echo "  make init-screeps-yml  # generate .screeps.yml (fill in server details)"
 fi
+# Created with Claude Code (claude.ai/code)

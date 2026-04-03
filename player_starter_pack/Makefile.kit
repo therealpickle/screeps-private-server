@@ -1,7 +1,11 @@
 # Screeps player kit — managed tooling. Do not edit.
 # Update with: make update-kit
+# Created with Claude Code (claude.ai/code)
 
-.PHONY: install init-screeps-yml update-kit deploy-%
+-include .env
+export
+
+.PHONY: install init-screeps-yml update-kit update-kit-local deploy-% record-start-% record-stop-% record-wipe-%
 
 install:
 	npm install
@@ -13,5 +17,29 @@ init-screeps-yml:
 update-kit:
 	curl -fsSL https://raw.githubusercontent.com/therealpickle/screeps-private-server/main/scripts/install-player-kit.sh | bash
 
+# Sync kit from a local server repo checkout instead of GitHub.
+# Requires SERVER_REPO_PATH in .env (e.g. SERVER_REPO_PATH=/home/user/repos/screeps-private-server)
+update-kit-local:
+	@test -n "$(SERVER_REPO_PATH)" || (echo "Error: SERVER_REPO_PATH not set in .env"; exit 1)
+	bash $(SERVER_REPO_PATH)/scripts/install-player-kit.sh --local $(SERVER_REPO_PATH)
+
 deploy-%:
 	npx screeps-api upload --server $* default/*.js
+
+# Recording: subscribes to the server's SSE stream and captures game state to local files.
+# Requires SERVER_REPO_PATH in .env.
+# PID file: .recording-<server>.pid   Data dir: recording-<server>/
+
+record-start-%:
+	@test -n "$(SERVER_REPO_PATH)" || (echo "Error: SERVER_REPO_PATH not set in .env"; exit 1)
+	python3 $(SERVER_REPO_PATH)/mcp/server.py --record start $*
+
+record-stop-%:
+	@test -n "$(SERVER_REPO_PATH)" || (echo "Error: SERVER_REPO_PATH not set in .env"; exit 1)
+	python3 $(SERVER_REPO_PATH)/mcp/server.py --record stop $*
+
+record-wipe-%:
+	@test -n "$(SERVER_REPO_PATH)" || (echo "Error: SERVER_REPO_PATH not set in .env"; exit 1)
+	python3 $(SERVER_REPO_PATH)/mcp/server.py --record wipe $*
+
+# Created with Claude Code (claude.ai/code)

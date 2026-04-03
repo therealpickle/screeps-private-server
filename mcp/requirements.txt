@@ -1,0 +1,4 @@
+# Created with Claude Code (claude.ai/code)
+mcp
+pyyaml
+# Created with Claude Code (claude.ai/code)
