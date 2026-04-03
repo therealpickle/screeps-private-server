@@ -42,7 +42,7 @@ if [ -n "$LOCAL_PATH" ]; then
                 printf '  created  %s\n' "$dst"
             fi
         else
-            printf '  skipped  %s  (already exists)\n' "$dst"
+            printf '  ok       %s\n' "$dst"
         fi
     }
 
