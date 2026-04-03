@@ -58,6 +58,8 @@ Extract `host`, `port`, `username`, and `password` from the matching server bloc
 
 Use this when testing code changes. Recording must be active to get console and room output.
 
+**Speed tip (local server only):** Use `screeps_set_tick(server="local", ms=1)` to run ticks as fast as the server can process them. The minimum setting is 1ms — the actual tick rate will be limited by server processing time and varies by machine. Push it low and the server will just tick as fast as it can. Restore to a normal rate (e.g. 1000ms) when done. This makes the wait step much faster.
+
 ### Step 1 — ensure recording is active
 If recording is not active for this server, start it:
 ```
