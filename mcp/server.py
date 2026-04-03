@@ -245,7 +245,7 @@ def screeps_recording_start(server: str, player_dir: str) -> str:
     """
     try:
         _record_start(server, player_dir)
-        return f"Recording started for '{server}'. Data: {player_dir}/recording-{server}/frames.jsonl"
+        return f"Recording started for '{server}'. Data: {player_dir}/recording-{server}/ (frames.jsonl + console.jsonl)"
     except Exception as e:
         return f"Error: {e}"
 
@@ -332,16 +332,41 @@ def _record_wipe(server: str, player_dir: str | Path) -> None:
         raise RuntimeError(f"No recording data found for '{server}'")
 
 
+def _stream_to_file(label: str, url: str, token: str, out_file: Path) -> None:
+    """Subscribe to an SSE endpoint and append data frames to out_file. Runs until exception."""
+    req = urllib.request.Request(url, headers={"X-Token": token})
+    with urllib.request.urlopen(req, timeout=90) as resp:
+        with open(out_file, "a") as f:
+            for raw_line in resp:
+                line = raw_line.decode("utf-8", errors="replace").strip()
+                if line.startswith("data:"):
+                    f.write(line[5:].strip() + "\n")
+                    f.flush()
+
+
+def _record_stream_loop(label: str, url_fn, out_file: Path,
+                        host: str, port: int, username: str, password: str) -> None:
+    """Retry loop for a single SSE stream. Reauthenticates on each reconnect."""
+    while True:
+        try:
+            token = auth(host, port, username, password)
+            _stream_to_file(label, url_fn(host, port, token), token, out_file)
+        except Exception as e:
+            print(f"[record-worker:{label}] Error: {e}, retrying in 5s...", flush=True)
+            time.sleep(5)
+
+
 def _record_worker(server: str) -> None:
     """
-    Recording worker: subscribes to picklenet room-stream SSE and writes
-    each data frame as a JSON line to recording-<server>/frames.jsonl.
+    Recording worker: subscribes to picklenet room-stream and console-stream SSE,
+    writing frames to recording-<server>/frames.jsonl and console.jsonl respectively.
     Runs until killed. CWD must be the player's bot repo (contains .screeps.yml).
     """
+    import threading
+
     player_dir = Path.cwd()
     data_dir = _data_dir(server, player_dir)
     data_dir.mkdir(parents=True, exist_ok=True)
-    frames_file = data_dir / "frames.jsonl"
 
     cfg = get_server_config(server, player_dir)
     host = cfg["host"]
@@ -349,24 +374,28 @@ def _record_worker(server: str) -> None:
     username = cfg["username"]
     password = cfg["password"]
 
-    print(f"[record-worker] Started for '{server}' -> {frames_file}", flush=True)
+    print(f"[record-worker] Started for '{server}' -> {data_dir}/", flush=True)
 
-    while True:
-        try:
-            token = auth(host, port, username, password)
-            url = f"http://{host}:{port}/api/picklenet/room-stream"
-            req = urllib.request.Request(url, headers={"X-Token": token})
+    # Console-stream runs in a daemon thread
+    console_thread = threading.Thread(
+        target=_record_stream_loop,
+        args=(
+            "console",
+            lambda h, p, t: f"http://{h}:{p}/api/picklenet/console-stream",
+            data_dir / "console.jsonl",
+            host, port, username, password,
+        ),
+        daemon=True,
+    )
+    console_thread.start()
 
-            with urllib.request.urlopen(req, timeout=90) as resp:
-                with open(frames_file, "a") as f:
-                    for raw_line in resp:
-                        line = raw_line.decode("utf-8", errors="replace").strip()
-                        if line.startswith("data:"):
-                            f.write(line[5:].strip() + "\n")
-                            f.flush()
-        except Exception as e:
-            print(f"[record-worker] Error: {e}, retrying in 5s...", flush=True)
-            time.sleep(5)
+    # Room-stream runs in the main thread
+    _record_stream_loop(
+        "rooms",
+        lambda h, p, t: f"http://{h}:{p}/api/picklenet/room-stream",
+        data_dir / "frames.jsonl",
+        host, port, username, password,
+    )
 
 
 # ---------------------------------------------------------------------------
