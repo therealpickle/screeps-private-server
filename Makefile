@@ -3,7 +3,7 @@
 -include .env
 export
 
-.PHONY: build start stop restart status rebuild update init-map purge-cache logs cli listusers set-user-pass set-tick-rate staging-setup teardown staging-wipe non-steam-user deleteuser spawn-user _verify_user test-picklenet
+.PHONY: build start stop restart status rebuild update init-map purge-cache logs cli listusers set-user-pass set-tick-rate staging-setup teardown staging-wipe headless-user deleteuser spawn-user _verify_user test-picklenet
 
 # Full setup from a fresh clone: creates .env if missing, builds image, starts server, initializes database and map
 build: _verify_user
@@ -116,11 +116,11 @@ set-user-pass:
 	@test -n "$(PASS)" || (echo "Usage: make set-user-pass USER=username PASS=password"; exit 1)
 	echo 'setPassword("$(USER)", "$(PASS)")' | docker compose exec -T screeps cli
 
-# Create a non-Steam user with a password: make non-steam-user USER=username PASS=password
+# Create a non-Steam user with a password: make headless-user USER=username PASS=password
 # Note: users created this way cannot log in via the Steam client — password auth only.
-non-steam-user:
-	@test -n "$(USER)" || (echo "Usage: make non-steam-user USER=username PASS=password"; exit 1)
-	@test -n "$(PASS)" || (echo "Usage: make non-steam-user USER=username PASS=password"; exit 1)
+headless-user:
+	@test -n "$(USER)" || (echo "Usage: make headless-user USER=username PASS=password"; exit 1)
+	@test -n "$(PASS)" || (echo "Usage: make headless-user USER=username PASS=password"; exit 1)
 	@USER_LOWER="$$(echo '$(USER)' | tr '[:upper:]' '[:lower:]')"; \
 	printf 'try { storage.db.users.insert({username:"%s",usernameLower:"%s",cpu:100,gcl:0,active:true,cpuAvailable:10000,registeredDate:new Date().toISOString(),blocked:false,authTouched:true}) } catch(e) {}\n' "$(USER)" "$$USER_LOWER" \
 	  | docker compose exec -T screeps cli
