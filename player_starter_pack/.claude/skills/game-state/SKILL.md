@@ -1,6 +1,6 @@
 ---
 name: game-state
-description: Read live Screeps game state, run console commands, or manage the server — use when asked about creeps, structures, rooms, resources, energy, spawns, anything in the game, console execution, deploy, respawn, tick rate, recording, server start/stop
+description: Read live Screeps game state, run console commands, manage the server, or run a test loop (edit code → deploy → wait → read console/room output → iterate) — use for creeps, structures, rooms, resources, energy, spawns, console execution, deploy, respawn, tick rate, recording
 allowed-tools: Bash
 ---
 
@@ -13,9 +13,9 @@ The `screeps` MCP exposes structured tools for common operations. Use these inst
 | Task | Tool | Notes |
 |---|---|---|
 | Server status + game tick | `screeps_server_status(server, player_dir?)` | |
-| Run JS in game sandbox | `screeps_console(server, player_dir, expr)` | output is async — check console-stream |
+| Run JS in game sandbox | `screeps_console(server, player_dir, expr)` | output is async — check console output |
 | Deploy bot code | `screeps_deploy(server, player_dir)` | |
-| Start recording | `screeps_recording_start(server, player_dir)` | |
+| Start recording | `screeps_recording_start(server, player_dir)` | captures room state + console output |
 | Stop recording | `screeps_recording_stop(server, player_dir)` | |
 | Wipe recording | `screeps_recording_wipe(server, player_dir)` | |
 | Spawn user into world | `screeps_respawn(server, user)` | local only |
@@ -31,7 +31,7 @@ The `screeps` MCP exposes structured tools for common operations. Use these inst
 
 ---
 
-## Server selection (for curl-based operations below)
+## Server selection
 
 Current `.screeps.yml`:
 !`cat .screeps.yml 2>/dev/null || echo "(no .screeps.yml found — ask the user to run: make init-screeps-yml)"`
@@ -42,6 +42,9 @@ Available servers (parsed from above):
 Active server:
 !`cat .active-server 2>/dev/null || python3 -c "import re; txt=open('.screeps.yml').read(); s=re.findall(r'^\s{2}(\w[\w-]*):', txt, re.M); print(s[0] if s else 'private')" 2>/dev/null || echo "private"`
 
+Recording status:
+!`ls .recording-*.pid 2>/dev/null | sed 's/\.recording-\(.*\)\.pid/\1 (active)/' || echo "(none active)"`
+
 **If the user specified a server** (e.g. `/game-state staging`), write it to `.active-server` now:
 ```bash
 echo "<SERVER_NAME>" > .active-server
@@ -49,7 +52,89 @@ echo "<SERVER_NAME>" > .active-server
 
 Extract `host`, `port`, `username`, and `password` from the matching server block in `.screeps.yml`.
 
-## Authentication
+---
+
+## Test loop (edit → deploy → observe → iterate)
+
+Use this when testing code changes. Recording must be active to get console and room output.
+
+### Step 1 — ensure recording is active
+If recording is not active for this server, start it:
+```
+screeps_recording_start(server, player_dir)
+```
+
+### Step 2 — note current position
+```bash
+BEFORE_TICK=$(curl -s "http://<HOST>:<PORT>/api/game/time?shard=shard0" \
+  | python3 -c "import sys,json; print(json.load(sys.stdin)['time'])")
+BEFORE_TS=$(date +%s%3N)
+echo "tick=$BEFORE_TICK ts=$BEFORE_TS"
+```
+
+### Step 3 — edit and deploy
+Make the code changes, then:
+```
+screeps_deploy(server, player_dir)
+```
+
+### Step 4 — wait for ticks to run
+Default: wait 10 ticks. Adjust based on what's being tested.
+```bash
+TARGET=$((BEFORE_TICK + 10))
+while true; do
+  CURRENT=$(curl -s "http://<HOST>:<PORT>/api/game/time?shard=shard0" \
+    | python3 -c "import sys,json; print(json.load(sys.stdin)['time'])")
+  [ "$CURRENT" -ge "$TARGET" ] && break
+  echo "waiting... tick $CURRENT / $TARGET"
+  sleep 2
+done
+echo "done — at tick $CURRENT"
+```
+
+### Step 5 — read console output
+```bash
+python3 - <<EOF
+import json
+before_ts = $BEFORE_TS
+path = "recording-<SERVER>/console.jsonl"
+try:
+    with open(path) as f:
+        entries = [json.loads(l) for l in f if l.strip()]
+    after = [e for e in entries if e.get("ts", 0) > before_ts]
+    if not after:
+        print("(no console output after deploy)")
+    for e in after:
+        print(f"[{e['type']}] {e['text']}")
+except FileNotFoundError:
+    print(f"No console log found at {path} — is recording active?")
+EOF
+```
+
+### Step 6 — read room state (if needed)
+```bash
+python3 - <<EOF
+import json
+before_tick = $BEFORE_TICK
+path = "recording-<SERVER>/frames.jsonl"
+try:
+    with open(path) as f:
+        frames = [json.loads(l) for l in f if l.strip()]
+    after = [fr for fr in frames if fr.get("tick", 0) > before_tick]
+    print(f"{len(after)} frames after tick {before_tick}")
+    for fr in after[-3:]:  # show last 3
+        print(json.dumps(fr))
+except FileNotFoundError:
+    print(f"No frames found at {path} — is recording active?")
+EOF
+```
+
+### Step 7 — iterate
+Analyze the output, make further edits, and repeat from step 2.
+
+---
+
+## Authentication (for curl-based operations below)
 
 ```bash
 TOKEN=$(curl -s -X POST "http://<HOST>:<PORT>/api/auth/signin" \
