@@ -2,7 +2,7 @@
   "mcpServers": {
     "screeps": {
       "command": "bash",
-      "args": ["mcp-launcher.sh"]
+      "args": [".claude/mcp-launcher.sh"]
     }
   }
 }

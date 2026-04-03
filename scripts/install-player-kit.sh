@@ -71,8 +71,8 @@ if [ -n "$LOCAL_PATH" ]; then
     copy_local "CLAUDE.kit.md"                           "CLAUDE.kit.md"                          1
     copy_local ".claude/skills/game-state/SKILL.md"     ".claude/skills/game-state/SKILL.md"     1
     copy_local ".mcp.json"                               ".mcp.json"                              1
-    copy_local "mcp-launcher.sh"                         "mcp-launcher.sh"                        1
-    chmod +x "mcp-launcher.sh"
+    copy_local ".claude/mcp-launcher.sh"                 ".claude/mcp-launcher.sh"                1
+    chmod +x ".claude/mcp-launcher.sh"
 
     copy_local "Makefile"                               "Makefile"                                0
     copy_local "CLAUDE.md"                              "CLAUDE.md"                               0
@@ -146,8 +146,8 @@ download "Makefile.kit"                            "Makefile.kit"               
 download "CLAUDE.kit.md"                           "CLAUDE.kit.md"                          1
 download ".claude/skills/game-state/SKILL.md"     ".claude/skills/game-state/SKILL.md"     1
 download ".mcp.json"                               ".mcp.json"                              1
-download "mcp-launcher.sh"                         "mcp-launcher.sh"                        1
-chmod +x "mcp-launcher.sh"
+download ".claude/mcp-launcher.sh"                 ".claude/mcp-launcher.sh"                1
+chmod +x ".claude/mcp-launcher.sh"
 
 # Player files — create only; players own these after first install
 download "Makefile"                               "Makefile"                                0
