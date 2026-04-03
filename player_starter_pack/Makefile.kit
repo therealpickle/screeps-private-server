@@ -17,7 +17,7 @@ init-screeps-yml:
 BRANCH ?= main
 
 update-kit:
-	curl -fsSL https://raw.githubusercontent.com/therealpickle/screeps-private-server/$(BRANCH)/scripts/install-player-kit.sh | SCREEPS_KIT_BRANCH=$(BRANCH) bash
+	curl -fsSL https://raw.githubusercontent.com/therealpickle/screeps-private-server/$(BRANCH)/scripts/install-player-kit.sh | bash -s -- --branch $(BRANCH)
 
 # Sync kit from a local server repo checkout instead of GitHub.
 # Requires SERVER_REPO_PATH in .env (e.g. SERVER_REPO_PATH=/home/user/repos/screeps-private-server)

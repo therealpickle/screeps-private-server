@@ -13,9 +13,18 @@
 
 set -e
 
+# --- Parse arguments ---
+BRANCH="main"
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --branch) BRANCH="$2"; shift 2 ;;
+        --local)  LOCAL_PATH="$2"; shift 2 ;;
+        *) shift ;;
+    esac
+done
+
 # --- Local mode: copy from a local repo checkout instead of downloading ---
-if [ "$1" = "--local" ]; then
-    LOCAL_PATH="$2"
+if [ -n "$LOCAL_PATH" ]; then
     if [ -z "$LOCAL_PATH" ]; then
         echo "Usage: install-player-kit.sh --local <server-repo-path>" >&2
         exit 1
@@ -60,7 +69,6 @@ fi
 
 # --- Remote mode: download from GitHub ---
 
-BRANCH="${SCREEPS_KIT_BRANCH:-main}"
 BASE="https://raw.githubusercontent.com/therealpickle/screeps-private-server/$BRANCH/player_starter_pack"
 
 # Download a file from the kit.
