@@ -31,9 +31,6 @@ from mcp.server.fastmcp import FastMCP
 # Configuration
 # ---------------------------------------------------------------------------
 
-# Default: parent of this file (i.e. the root of screeps-private-server repo)
-SERVER_REPO_PATH = Path(os.environ.get("SERVER_REPO_PATH", Path(__file__).parent.parent))
-
 mcp = FastMCP("screeps")
 
 # ---------------------------------------------------------------------------
@@ -53,10 +50,28 @@ def run_make(target: str, cwd: str | Path, **make_vars) -> str:
         return f"Error running make {target}: {e}"
 
 
-def local_only(server: str) -> str | None:
-    """Return an error string if server is not 'local', else None."""
-    if server != "local":
-        return f"Error: this tool only works on the local server (got '{server}')"
+def get_server_repo(cfg: dict) -> Path:
+    """Return the local server repo path from the server config."""
+    repo = cfg.get("server_repo")
+    if not repo:
+        raise ValueError(
+            "server_repo is not set in .screeps.yml for this server. "
+            "Add server_repo: /path/to/screeps-private-server under the server entry."
+        )
+    return Path(repo)
+
+
+def local_only(server: str, player_dir: str | Path = "") -> str | None:
+    """Return error string if server is not server_type: local in .screeps.yml."""
+    if not player_dir:
+        return "Error: player_dir is required to verify server type."
+    cfg = get_server_config(server, player_dir)
+    if cfg.get("server_type", "remote") != "local":
+        return (
+            f"Error: server '{server}' is not a local server "
+            f"(server_type: {cfg.get('server_type', 'remote')}). "
+            f"Set server_type: local in .screeps.yml to enable server management."
+        )
     return None
 
 
@@ -71,12 +86,7 @@ def parse_screeps_yml(player_dir: str | Path) -> dict:
 def get_server_config(server: str, player_dir: str | Path) -> dict:
     """Look up host/port/username/password for a server from .screeps.yml."""
     servers = parse_screeps_yml(player_dir)
-    if server == "local":
-        cfg = servers.get("local") or servers.get("private") or (
-            next(iter(servers.values()), None)
-        )
-    else:
-        cfg = servers.get(server)
+    cfg = servers.get(server)
     if not cfg:
         raise ValueError(f"Server '{server}' not found in {player_dir}/.screeps.yml")
     return cfg
@@ -106,23 +116,74 @@ def get_game_time(host: str, port: int) -> int:
 
 
 # ---------------------------------------------------------------------------
+# User setup helper
+# ---------------------------------------------------------------------------
+
+def _ensure_user_spawned(
+    cfg: dict,
+    user_override: str | None = None,
+) -> str:
+    """
+    Create the user if needed (based on user_type) and place their spawn.
+    Called by screeps_fresh_start and screeps_respawn. Returns a status string.
+    """
+    server_repo = get_server_repo(cfg)
+    username = user_override or cfg["username"]
+    password = cfg.get("password", "")
+    user_type = cfg.get("user_type", "steam")
+
+    result = run_make("check-user", server_repo, USER=username)
+    user_exists = "USER_EXISTS" in result
+
+    if not user_exists:
+        if user_type == "headless":
+            lines = [f"Creating headless user '{username}'..."]
+            lines.append(run_make("headless-user", server_repo, USER=username, PASS=password))
+        else:  # steam
+            host = cfg["host"]
+            port = int(cfg.get("port", 21025))
+            return (
+                f"NEEDS_STEAM_LOGIN: User '{username}' not found. "
+                f"Tell the user to log in via the Screeps Steam client at http://{host}:{port} "
+                f"using the username '{username}' (set in .screeps.yml), "
+                f"then immediately call screeps_await_steam_user (do not wait for confirmation — "
+                f"it will poll while they log in)."
+            )
+    else:
+        lines = []
+
+    lines.append(f"Placing spawn for '{username}'...")
+    lines.append(run_make("spawn-user", server_repo, USER=username))
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
 # MCP Tools
 # ---------------------------------------------------------------------------
 
+# TODO: add tools for API calls currently done via curl in the game-state skill:
+#   - screeps_room_objects(server, player_dir, room) — GET /api/game/room-objects
+#   - screeps_room_terrain(server, player_dir, room) — GET /api/game/room-terrain
+#   - screeps_memory_read(server, player_dir, path?) — GET /api/user/memory
+#   - screeps_memory_write(server, player_dir, path, value) — POST /api/user/memory
+#   - screeps_memory_segment_read(server, player_dir, segment) — GET /api/user/memory-segment
+
 @mcp.tool()
-def screeps_server_start(server: str) -> str:
+def screeps_server_start(server: str, player_dir: str) -> str:
     """Start the Screeps server (local only). Runs docker compose up."""
-    if err := local_only(server):
+    if err := local_only(server, player_dir):
         return err
-    return run_make("start", SERVER_REPO_PATH)
+    cfg = get_server_config(server, player_dir)
+    return run_make("start", get_server_repo(cfg))
 
 
 @mcp.tool()
-def screeps_server_stop(server: str) -> str:
+def screeps_server_stop(server: str, player_dir: str) -> str:
     """Stop the Screeps server (local only). Runs docker compose stop."""
-    if err := local_only(server):
+    if err := local_only(server, player_dir):
         return err
-    return run_make("stop", SERVER_REPO_PATH)
+    cfg = get_server_config(server, player_dir)
+    return run_make("stop", get_server_repo(cfg))
 
 
 @mcp.tool()
@@ -134,25 +195,29 @@ def screeps_server_status(server: str, player_dir: str = "") -> str:
     """
     lines = []
 
-    if server == "local":
-        result = subprocess.run(
-            ["docker", "compose", "ps"],
-            cwd=str(SERVER_REPO_PATH),
-            capture_output=True,
-            text=True,
-        )
-        lines.append("=== Containers ===")
-        lines.append(result.stdout.strip() or "(no containers running)")
+    if player_dir:
+        try:
+            cfg = get_server_config(server, player_dir)
+            if cfg.get("server_type") == "local":
+                server_repo = get_server_repo(cfg)
+                result = subprocess.run(
+                    ["docker", "compose", "ps"],
+                    cwd=str(server_repo),
+                    capture_output=True,
+                    text=True,
+                )
+                lines.append("=== Containers ===")
+                lines.append(result.stdout.strip() or "(no containers running)")
+        except Exception:
+            pass
 
     try:
         if player_dir:
             cfg = get_server_config(server, player_dir)
             host = cfg["host"]
             port = int(cfg.get("port", 21025))
-        elif server == "local":
-            host, port = "localhost", 21025
         else:
-            return "\n".join(lines) + "\nError: player_dir required to get game time for non-local servers"
+            return "\n".join(lines) + "\nError: player_dir required to get server info"
         tick = get_game_time(host, port)
         lines.append(f"\n=== Game ===\nTick: {tick}")
     except Exception as e:
@@ -162,27 +227,46 @@ def screeps_server_status(server: str, player_dir: str = "") -> str:
 
 
 @mcp.tool()
-def screeps_fresh_start(server: str, map_key: str = "random_1x1", tick_rate: int = 1000) -> str:
+def screeps_fresh_start(server: str, player_dir: str, map_key: str = "random_1x1", tick_rate: int = 1000) -> str:
     """
-    Wipe the server database, import a fresh map, and set the tick rate (local only).
+    Reset the game world and import a fresh map (local only).
+    Reads user_type from .screeps.yml to determine wipe strategy:
+      - user_type: headless -> full database wipe, then creates user and places spawn automatically
+      - user_type: steam    -> soft wipe (preserves user accounts), then places spawn automatically
     map_key: map identifier passed to utils.importMap (e.g. random_1x1, random_2x2).
     tick_rate: tick duration in milliseconds.
     """
-    if err := local_only(server):
+    if err := local_only(server, player_dir):
         return err
-    lines = ["--- init-map ---"]
-    lines.append(run_make("init-map", SERVER_REPO_PATH, INIT_MAP_KEY=map_key))
+
+    cfg = get_server_config(server, player_dir)
+    server_repo = get_server_repo(cfg)
+    user_type = cfg.get("user_type", "steam")
+
+    lines = []
+    if user_type == "headless":
+        lines.append("--- init-map (full wipe) ---")
+        lines.append(run_make("init-map", server_repo, INIT_MAP_KEY=map_key))
+    else:
+        lines.append("--- soft-wipe (keeping user accounts) ---")
+        lines.append(run_make("soft-wipe", server_repo, INIT_MAP_KEY=map_key))
+
     lines.append("--- set-tick-rate ---")
-    lines.append(run_make("set-tick-rate", SERVER_REPO_PATH, MS=tick_rate))
+    lines.append(run_make("set-tick-rate", server_repo, MS=tick_rate))
+
+    lines.append("--- user setup ---")
+    lines.append(_ensure_user_spawned(cfg))
+
     return "\n".join(lines)
 
 
 @mcp.tool()
-def screeps_set_tick(server: str, ms: int) -> str:
+def screeps_set_tick(server: str, ms: int, player_dir: str) -> str:
     """Set the tick duration in milliseconds (local only). Not persistent across restarts."""
-    if err := local_only(server):
+    if err := local_only(server, player_dir):
         return err
-    return run_make("set-tick-rate", SERVER_REPO_PATH, MS=ms)
+    cfg = get_server_config(server, player_dir)
+    return run_make("set-tick-rate", get_server_repo(cfg), MS=ms)
 
 
 @mcp.tool()
@@ -195,14 +279,88 @@ def screeps_deploy(server: str, player_dir: str) -> str:
 
 
 @mcp.tool()
-def screeps_respawn(server: str, user: str) -> str:
+def screeps_respawn(server: str, player_dir: str, user: str = "") -> str:
     """
-    Spawn a user into a random unowned room (local only).
-    The user must already exist. Idempotent — safe to call if the user already has a spawn.
+    Respawn the server user in a new random room (local only). Works like the in-game respawn:
+    clears all owned structures/creeps and controller ownership, then places a new Spawn1
+    in a random unowned room. Reads username from .screeps.yml if user not specified.
     """
-    if err := local_only(server):
+    if err := local_only(server, player_dir):
         return err
-    return run_make("spawn-user", SERVER_REPO_PATH, USER=user)
+    cfg = get_server_config(server, player_dir)
+    server_repo = get_server_repo(cfg)
+    username = user or cfg["username"]
+    return run_make("respawn-user", server_repo, USER=username)
+
+
+@mcp.tool()
+def screeps_await_steam_user(server: str, player_dir: str, user: str = "") -> str:
+    """
+    Wait for a Steam user to log in, then set their password and place their spawn (local only).
+    Call this immediately after screeps_fresh_start returns a "log in via Steam client" message —
+    do NOT wait for the user to confirm they've logged in first. This tool polls every 10 seconds
+    for up to 5 minutes; the user logs in while it's waiting, and setup completes automatically.
+    If user is omitted, reads username and password from .screeps.yml.
+    """
+    if err := local_only(server, player_dir):
+        return err
+    cfg = get_server_config(server, player_dir)
+    server_repo = get_server_repo(cfg)
+    username = user or cfg["username"]
+    password = cfg.get("password", "")
+
+    timeout, interval, elapsed = 300, 10, 0
+    while elapsed < timeout:
+        result = run_make("check-user", server_repo, USER=username)
+        if "USER_EXISTS" in result:
+            break
+        time.sleep(interval)
+        elapsed += interval
+    else:
+        return f"Timeout: '{username}' never appeared after {timeout}s. Did you log in via the Steam client?"
+
+    lines = [f"User '{username}' detected after {elapsed}s."]
+    lines.append(f"Setting password for '{username}'...")
+    lines.append(run_make("set-user-pass", server_repo, USER=username, PASS=password))
+    lines.append(f"Placing spawn for '{username}'...")
+    lines.append(run_make("spawn-user", server_repo, USER=username))
+    return "\n".join(lines)
+
+
+@mcp.tool()
+def screeps_create_headless_user(server: str, player_dir: str, user: str = "", password: str = "") -> str:
+    """
+    Manually create a non-Steam (headless) user with password auth (local only).
+    If user/password are omitted, reads them from .screeps.yml.
+    Idempotent — safe to call if the user already exists.
+    After creating, call screeps_respawn to place their spawn.
+    """
+    if err := local_only(server, player_dir):
+        return err
+    cfg = get_server_config(server, player_dir)
+    return run_make(
+        "headless-user", get_server_repo(cfg),
+        USER=user or cfg["username"],
+        PASS=password or cfg.get("password", ""),
+    )
+
+
+@mcp.tool()
+def screeps_set_user_password(server: str, player_dir: str, user: str = "", password: str = "") -> str:
+    """
+    Set or reset a user's password (local only).
+    If user/password are omitted, reads them from .screeps.yml.
+    Useful for giving a Steam user password-based API access after their first Steam login.
+    For headless users, use screeps_create_headless_user instead (sets password at creation).
+    """
+    if err := local_only(server, player_dir):
+        return err
+    cfg = get_server_config(server, player_dir)
+    return run_make(
+        "set-user-pass", get_server_repo(cfg),
+        USER=user or cfg["username"],
+        PASS=password or cfg.get("password", ""),
+    )
 
 
 @mcp.tool()
