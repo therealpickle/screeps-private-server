@@ -60,7 +60,8 @@ fi
 
 # --- Remote mode: download from GitHub ---
 
-BASE="https://raw.githubusercontent.com/therealpickle/screeps-private-server/main/player_starter_pack"
+BRANCH="${SCREEPS_KIT_BRANCH:-main}"
+BASE="https://raw.githubusercontent.com/therealpickle/screeps-private-server/$BRANCH/player_starter_pack"
 
 # Download a file from the kit.
 # force=1  -> always overwrite (tooling)

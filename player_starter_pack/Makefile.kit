@@ -14,8 +14,10 @@ init-screeps-yml:
 	@printf 'servers:\n  private:\n    host: <SERVER_ADDRESS>\n    port: 21025\n    http: true\n    username: <USERNAME>\n    password: <PASSWORD>\n    branch: default\n' > .screeps.yml
 	@echo "Created .screeps.yml — fill in <SERVER_ADDRESS>, <USERNAME>, and <PASSWORD>"
 
+KIT_BRANCH ?= main
+
 update-kit:
-	curl -fsSL https://raw.githubusercontent.com/therealpickle/screeps-private-server/main/scripts/install-player-kit.sh | bash
+	curl -fsSL https://raw.githubusercontent.com/therealpickle/screeps-private-server/$(KIT_BRANCH)/scripts/install-player-kit.sh | SCREEPS_KIT_BRANCH=$(KIT_BRANCH) bash
 
 # Sync kit from a local server repo checkout instead of GitHub.
 # Requires SERVER_REPO_PATH in .env (e.g. SERVER_REPO_PATH=/home/user/repos/screeps-private-server)
