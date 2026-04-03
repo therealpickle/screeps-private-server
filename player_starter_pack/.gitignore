@@ -2,7 +2,12 @@
 
 .screeps.yml
 .active-server
+.env
 node_modules/
+
+# Recording data
+recording-*/
+.recording-*.pid
 
 # Created with Claude Code (claude.ai/code)
 
