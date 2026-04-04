@@ -348,6 +348,39 @@ class TestConsole(ToolTestCase):
 
 
 # ---------------------------------------------------------------------------
+# screeps_map_stats
+# ---------------------------------------------------------------------------
+
+class TestMapStats(ToolTestCase):
+
+    @patch("server.parse_screeps_yml", return_value=_parse(LOCAL_CFG))
+    @patch("server.urllib.request.urlopen")
+    def test_returns_parsed_json(self, mock_urlopen, _parse):
+        mock_resp = MagicMock()
+        mock_resp.__enter__ = lambda s: s
+        mock_resp.__exit__ = MagicMock(return_value=False)
+        fake_data = {
+            "ok": 1, "gameTime": 100,
+            "stats": {"E1S1": {"status": "normal", "minerals0": {"type": "U", "density": 2}}},
+            "statsMax": {}, "users": {}
+        }
+        mock_resp.read.return_value = json.dumps(fake_data).encode()
+        mock_urlopen.return_value = mock_resp
+
+        result = server.screeps_map_stats(SERVER_NAME, PLAYER_DIR)
+        parsed = json.loads(result)
+        self.assertIn("stats", parsed)
+        self.assertIn("E1S1", parsed["stats"])
+        self.assertIn("minerals0", parsed["stats"]["E1S1"])
+
+    @patch("server.parse_screeps_yml", return_value=_parse(LOCAL_CFG))
+    @patch("server.urllib.request.urlopen", side_effect=Exception("connection refused"))
+    def test_connection_error_returns_error(self, _urlopen, _parse):
+        result = server.screeps_map_stats(SERVER_NAME, PLAYER_DIR)
+        self.assertIn("Error", result)
+
+
+# ---------------------------------------------------------------------------
 # screeps_room_objects
 # ---------------------------------------------------------------------------
 

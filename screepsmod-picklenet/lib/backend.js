@@ -102,12 +102,16 @@ module.exports = function setupBackend(config) {
         }
     }
 
+    // ---- Tick tracker ----
+    let lastTick = 0;
+
     // ---- Tick handler ----
     // Called on each roomsDone pubsub event.
     // Queries rooms.objects for the union of all subscribed rooms, then
     // pushes one frame per connected client.
 
     async function onTick(tick) {
+        lastTick = tick;
         if (!clients.length && !memoryClients.length) return;
 
         // Push room-stream frames
@@ -269,6 +273,52 @@ module.exports = function setupBackend(config) {
                 const i = memoryClients.indexOf(client);
                 if (i >= 0) memoryClients.splice(i, 1);
             });
+        });
+
+        // Returns map-stats shape for all rooms in the world.
+        // Same response format as /api/game/map-stats but covers every room without
+        // requiring the caller to know room names in advance. No auth required.
+        app.get('/api/picklenet/map-stats', async function(req, res) {
+            try {
+                const rooms      = await db['rooms'].find({});
+                const objects    = await db['rooms.objects'].find({ type: { $in: ['mineral', 'controller'] } });
+
+                const mineralByRoom = {};
+                const controllerByRoom = {};
+                for (const obj of objects) {
+                    if (obj.type === 'mineral') {
+                        mineralByRoom[obj.room] = { type: obj.mineralType, density: obj.density };
+                    } else if (obj.type === 'controller' && obj.user && obj.level > 0) {
+                        controllerByRoom[obj.room] = { user: obj.user, level: obj.level };
+                    }
+                }
+
+                const ownerIds = [...new Set(Object.values(controllerByRoom).map(o => o.user))];
+                const users = {};
+                if (ownerIds.length) {
+                    const userDocs = await db['users'].find({ _id: { $in: ownerIds } });
+                    for (const u of userDocs) {
+                        users[u._id] = { _id: u._id, username: u.username, badge: u.badge };
+                    }
+                }
+
+                const stats = {};
+                for (const room of rooms) {
+                    const id = room._id;
+                    stats[id] = {
+                        status:      room.status      || 'normal',
+                        novice:      room.novice      || null,
+                        respawnArea: room.respawnArea || null,
+                        openTime:    room.openTime    || null,
+                    };
+                    if (mineralByRoom[id])    stats[id].minerals0 = mineralByRoom[id];
+                    if (controllerByRoom[id]) stats[id].owner0    = controllerByRoom[id];
+                }
+
+                res.json({ ok: 1, gameTime: lastTick, stats, statsMax: {}, users });
+            } catch(e) {
+                res.status(500).json({ ok: 0, error: e.message });
+            }
         });
 
         app.get('/api/picklenet/console-stream', requireXToken, function(req, res) {

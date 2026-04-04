@@ -395,6 +395,27 @@ def screeps_console(server: str, player_dir: str, expr: str) -> str:
 
 
 @mcp.tool()
+def screeps_map_stats(server: str, player_dir: str) -> str:
+    """
+    Get map stats for all rooms in the world via the picklenet API.
+    Returns the same shape as /api/game/map-stats but covers every room.
+    Each room entry includes: status, minerals0 (if present), owner0 (if claimed).
+    users dict is populated with owner info when any room is owned.
+    No authentication required.
+    """
+    try:
+        cfg = get_server_config(server, player_dir)
+        host = cfg["host"]
+        port = int(cfg.get("port", 21025))
+        url = f"http://{host}:{port}/api/picklenet/map-stats"
+        with urllib.request.urlopen(url, timeout=10) as resp:
+            data = json.loads(resp.read())
+        return json.dumps(data, indent=2)
+    except Exception as e:
+        return f"Error: {e}"
+
+
+@mcp.tool()
 def screeps_room_objects(server: str, player_dir: str, room: str) -> str:
     """
     Get all game objects in a room (creeps, structures, sources, minerals, etc.).

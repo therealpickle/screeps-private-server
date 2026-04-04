@@ -3,7 +3,7 @@
 -include .env
 export
 
-.PHONY: build start stop restart status rebuild update init-map soft-wipe purge-cache logs cli listusers check-user set-user-pass set-tick-rate staging-setup teardown staging-wipe headless-user deleteuser spawn-user respawn-user _verify_user test-picklenet test-mcp
+.PHONY: build start stop restart status rebuild update init-map soft-wipe purge-cache logs cli listusers check-user set-user-pass set-tick-rate staging-setup teardown staging-wipe headless-user deleteuser spawn-user respawn-user _verify_user test-picklenet test-mcp test-all
 
 # Full setup from a fresh clone: creates .env if missing, builds image, starts server, initializes database and map
 build: _verify_user
@@ -108,6 +108,9 @@ cli:
 # Reload config.yml without restarting the server
 reload:
 	echo 'utils.reloadConfig()' | docker compose exec -T screeps cli
+
+# Run all tests
+test-all: test-picklenet test-mcp
 
 # Run screepsmod-picklenet unit tests
 test-picklenet:

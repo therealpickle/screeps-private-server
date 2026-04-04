@@ -25,6 +25,8 @@ function makeConfig(opts = {}) {
     const tokens  = opts.tokens  || { 'tok-a': 'user-a' };
     const memory  = opts.memory  || {};
     const objects = opts.objects || [];
+    const rooms   = opts.rooms   || [];
+    const users   = opts.users   || [];
     const scope   = opts.scope   || 'any';
 
     const pubsubs = {};
@@ -42,12 +44,14 @@ function makeConfig(opts = {}) {
                     },
                 },
                 db: {
+                    'rooms': {
+                        find(_query) { return Promise.resolve(rooms); },
+                    },
                     'rooms.objects': {
                         find(query) {
-                            const andFilter = query && query.$and;
-                            if (andFilter) {
-                                const roomFilter = andFilter.find(c => c.room && c.room.$in);
-                                const typeFilter = andFilter.find(c => c.type);
+                            if (query && query.$and) {
+                                const roomFilter = query.$and.find(c => c.room && c.room.$in);
+                                const typeFilter = query.$and.find(c => c.type);
                                 const roomList = roomFilter ? roomFilter.room.$in : null;
                                 return Promise.resolve(objects.filter(o => {
                                     if (typeFilter && o.type !== typeFilter.type) return false;
@@ -55,11 +59,21 @@ function makeConfig(opts = {}) {
                                     return true;
                                 }));
                             }
-                            const rooms = query && query.room && query.room.$in;
-                            if (rooms) {
-                                return Promise.resolve(objects.filter(o => rooms.includes(o.room)));
+                            if (query && query.room && query.room.$in) {
+                                return Promise.resolve(objects.filter(o => query.room.$in.includes(o.room)));
+                            }
+                            if (query && query.type && query.type.$in) {
+                                return Promise.resolve(objects.filter(o => query.type.$in.includes(o.type)));
                             }
                             return Promise.resolve(objects);
+                        },
+                    },
+                    'users': {
+                        find(query) {
+                            if (query && query._id && query._id.$in) {
+                                return Promise.resolve(users.filter(u => query._id.$in.includes(u._id)));
+                            }
+                            return Promise.resolve(users);
                         },
                     },
                 },
@@ -604,5 +618,99 @@ describe('GET /api/picklenet/memory-stream', () => {
         } finally {
             req._emit('close');
         }
+    });
+});
+
+// ---------------------------------------------------------------------------
+// GET /api/picklenet/map-stats
+// ---------------------------------------------------------------------------
+
+describe('GET /api/picklenet/map-stats', () => {
+    let config, app;
+
+    before(async () => {
+        ({ config, app } = await freshSetup({
+            rooms: [
+                { _id: 'E1S1', status: 'normal' },
+                { _id: 'W0N0', status: 'out of borders' },
+            ],
+            objects: [
+                { _id: 'm1', type: 'mineral',    room: 'E1S1', mineralType: 'U', density: 2 },
+                { _id: 'c1', type: 'controller', room: 'E1S1', user: 'user-a', level: 3 },
+                { _id: 'c2', type: 'controller', room: 'W0N0', user: null,     level: 0 },
+            ],
+            users: [
+                { _id: 'user-a', username: 'Alice', badge: { color: 'red' } },
+            ],
+        }));
+    });
+
+    async function getMapStats() {
+        const handlers = app._routes['/api/picklenet/map-stats'];
+        const req = makeReq();
+        const res = makeRes();
+        await chain(handlers, req, res);
+        await flush();
+        return res.jsonBody;
+    }
+
+    it('returns ok=1 with stats, statsMax, users, and gameTime', async () => {
+        const body = await getMapStats();
+        assert.equal(body.ok, 1);
+        assert.ok(typeof body.gameTime === 'number');
+        assert.ok(body.stats);
+        assert.ok(body.statsMax);
+        assert.ok(body.users);
+    });
+
+    it('includes all rooms in stats', async () => {
+        const body = await getMapStats();
+        assert.ok('E1S1' in body.stats);
+        assert.ok('W0N0' in body.stats);
+    });
+
+    it('includes status field for each room', async () => {
+        const body = await getMapStats();
+        assert.equal(body.stats['E1S1'].status, 'normal');
+        assert.equal(body.stats['W0N0'].status, 'out of borders');
+    });
+
+    it('includes minerals0 only for rooms with a mineral', async () => {
+        const body = await getMapStats();
+        assert.deepEqual(body.stats['E1S1'].minerals0, { type: 'U', density: 2 });
+        assert.ok(!('minerals0' in body.stats['W0N0']));
+    });
+
+    it('includes owner0 only for rooms with a claimed controller (level > 0)', async () => {
+        const body = await getMapStats();
+        assert.deepEqual(body.stats['E1S1'].owner0, { user: 'user-a', level: 3 });
+        assert.ok(!('owner0' in body.stats['W0N0']));
+    });
+
+    it('populates users dict with owner info', async () => {
+        const body = await getMapStats();
+        assert.ok('user-a' in body.users);
+        assert.equal(body.users['user-a'].username, 'Alice');
+    });
+
+    it('reflects lastTick as gameTime after a tick fires', async () => {
+        config._pubsubs['roomsDone'][0]('42');
+        await flush();
+
+        const body = await getMapStats();
+        assert.equal(body.gameTime, 42);
+    });
+
+    it('returns empty stats and users when world has no rooms', async () => {
+        const { app: emptyApp } = await freshSetup({ rooms: [], objects: [], users: [] });
+        const handlers = emptyApp._routes['/api/picklenet/map-stats'];
+        const req = makeReq();
+        const res = makeRes();
+        await chain(handlers, req, res);
+        await flush();
+
+        assert.equal(res.jsonBody.ok, 1);
+        assert.deepEqual(res.jsonBody.stats, {});
+        assert.deepEqual(res.jsonBody.users, {});
     });
 });
