@@ -67,6 +67,9 @@ if [ -n "$LOCAL_PATH" ]; then
     echo "Screeps player kit installer (local)"
     echo "====================================="
 
+    # Remove renamed/deleted skills so stale slash commands don't linger
+    rm -rf ".claude/skills/game-state"
+
     copy_local "Makefile.kit"                                 "Makefile.kit"                                1
     copy_local "CLAUDE.kit.md"                               "CLAUDE.kit.md"                               1
     copy_local ".claude/skills/picklenet/SKILL.md"         ".claude/skills/picklenet/SKILL.md"          1
@@ -141,6 +144,9 @@ merge_download() {
 
 echo "Screeps player kit installer"
 echo "============================"
+
+# Remove renamed/deleted skills so stale slash commands don't linger
+rm -rf ".claude/skills/game-state"
 
 # Tooling — always update so the server admin can push improvements
 download "Makefile.kit"                                 "Makefile.kit"                                1
