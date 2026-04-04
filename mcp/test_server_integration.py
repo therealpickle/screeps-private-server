@@ -10,6 +10,7 @@ or directly:
 """
 import json
 import os
+import shutil
 import sys
 import time
 import tempfile
@@ -60,6 +61,7 @@ class IntegrationTestCase(unittest.TestCase):
                 SERVER_NAME: {
                     "host": HOST,
                     "port": PORT,
+                    "http": True,
                     "username": USERNAME,
                     "password": PASSWORD,
                     "server_type": "local",
@@ -129,6 +131,28 @@ class TestRoomObjectsIntegration(IntegrationTestCase):
         parsed = json.loads(result)
         self.assertIn("objects", parsed)
         self.assertIsInstance(parsed["objects"], list)
+
+
+# ---------------------------------------------------------------------------
+# screeps_set_tick  (local-only, stateless — restores default in tearDown)
+# ---------------------------------------------------------------------------
+
+DEFAULT_TICK_MS = 1000
+
+class TestSetTickIntegration(IntegrationTestCase):
+
+    def tearDown(self):
+        server.screeps_set_tick(SERVER_NAME, DEFAULT_TICK_MS, self.player_dir)
+        super().tearDown()
+
+    def test_set_tick_returns_no_error(self):
+        result = server.screeps_set_tick(SERVER_NAME, 500, self.player_dir)
+        self.assertNotIn("Error", result)
+
+    def test_set_tick_restores_default(self):
+        server.screeps_set_tick(SERVER_NAME, 500, self.player_dir)
+        result = server.screeps_set_tick(SERVER_NAME, DEFAULT_TICK_MS, self.player_dir)
+        self.assertNotIn("Error", result)
 
 
 # ---------------------------------------------------------------------------
@@ -211,6 +235,164 @@ class TestRecordingIntegration(IntegrationTestCase):
         result = server.screeps_recording_start(SERVER_NAME, self.player_dir)
         self.assertIn("Error", result)
         self.assertIn("Already recording", result)
+
+
+# ---------------------------------------------------------------------------
+# Base class for tests that need a temporary headless user
+# Creates the user before each test; deletes it in tearDown.
+# ---------------------------------------------------------------------------
+
+TMP_USER = "inttest_tmp"
+TMP_PASS = "inttest_tmppass"
+
+
+class TmpUserTestCase(IntegrationTestCase):
+
+    def setUp(self):
+        super().setUp()
+        (Path(self.player_dir) / ".screeps.yml").write_text(yaml.dump({
+            "servers": {
+                SERVER_NAME: {
+                    "host": HOST,
+                    "port": PORT,
+                    "http": True,
+                    "username": TMP_USER,
+                    "password": TMP_PASS,
+                    "server_type": "local",
+                    "server_repo": SERVER_REPO,
+                    "user_type": "headless",
+                }
+            }
+        }))
+        server.run_make("headless-user", SERVER_REPO, USER=TMP_USER, PASS=TMP_PASS)
+
+    def tearDown(self):
+        server.run_make("deleteuser", SERVER_REPO, USER=TMP_USER)
+        super().tearDown()
+
+
+# ---------------------------------------------------------------------------
+# screeps_create_headless_user
+# ---------------------------------------------------------------------------
+
+class TestCreateHeadlessUserIntegration(IntegrationTestCase):
+
+    def tearDown(self):
+        server.run_make("deleteuser", SERVER_REPO, USER=TMP_USER)
+        super().tearDown()
+
+    def test_creates_user_successfully(self):
+        result = server.screeps_create_headless_user(
+            SERVER_NAME, self.player_dir, user=TMP_USER, password=TMP_PASS
+        )
+        self.assertNotIn("Error", result)
+
+    def test_user_exists_after_creation(self):
+        server.screeps_create_headless_user(
+            SERVER_NAME, self.player_dir, user=TMP_USER, password=TMP_PASS
+        )
+        check = server.run_make("check-user", SERVER_REPO, USER=TMP_USER)
+        self.assertIn("USER_EXISTS", check)
+
+    def test_idempotent_on_existing_user(self):
+        server.screeps_create_headless_user(
+            SERVER_NAME, self.player_dir, user=TMP_USER, password=TMP_PASS
+        )
+        result = server.screeps_create_headless_user(
+            SERVER_NAME, self.player_dir, user=TMP_USER, password=TMP_PASS
+        )
+        self.assertNotIn("Error", result)
+
+
+# ---------------------------------------------------------------------------
+# screeps_set_user_password  (depends on user existing)
+# ---------------------------------------------------------------------------
+
+class TestSetUserPasswordIntegration(TmpUserTestCase):
+
+    def test_set_password_returns_no_error(self):
+        result = server.screeps_set_user_password(
+            SERVER_NAME, self.player_dir, user=TMP_USER, password="newpass123"
+        )
+        self.assertNotIn("Error", result)
+
+    def test_reads_creds_from_screeps_yml(self):
+        # player_dir fixture has TMP_USER/TMP_PASS — omit explicit args
+        result = server.screeps_set_user_password(SERVER_NAME, self.player_dir)
+        self.assertNotIn("Error", result)
+
+
+# ---------------------------------------------------------------------------
+# screeps_respawn  (depends on user existing)
+# ---------------------------------------------------------------------------
+
+class TestRespawnIntegration(TmpUserTestCase):
+
+    def test_respawn_returns_no_error(self):
+        result = server.screeps_respawn(
+            SERVER_NAME, self.player_dir, user=TMP_USER
+        )
+        self.assertNotIn("Error", result)
+
+    def test_respawn_reads_user_from_screeps_yml(self):
+        result = server.screeps_respawn(SERVER_NAME, self.player_dir)
+        self.assertNotIn("Error", result)
+
+
+# ---------------------------------------------------------------------------
+# screeps_deploy  (depends on user existing + spawn placed + kit files present)
+# ---------------------------------------------------------------------------
+
+KIT_DIR = Path(SERVER_REPO) / "player_starter_pack"
+
+
+class TestDeployIntegration(TmpUserTestCase):
+
+    def setUp(self):
+        super().setUp()  # creates tmp user, writes .screeps.yml
+        # Copy the kit files and bot code into player_dir
+        shutil.copy(KIT_DIR / "Makefile", Path(self.player_dir) / "Makefile")
+        shutil.copy(KIT_DIR / "Makefile.kit", Path(self.player_dir) / "Makefile.kit")
+        (Path(self.player_dir) / "default").mkdir()
+        shutil.copy(KIT_DIR / "default" / "main.js", Path(self.player_dir) / "default" / "main.js")
+        # Place a spawn so the deployed code has something to run against
+        server.screeps_respawn(SERVER_NAME, self.player_dir, user=TMP_USER)
+
+    def test_deploy_uploads_code(self):
+        result = server.screeps_deploy(SERVER_NAME, self.player_dir)
+        self.assertNotIn("Error", result)
+
+    def test_deploy_uploads_to_correct_branch(self):
+        result = server.screeps_deploy(SERVER_NAME, self.player_dir)
+        # screeps-api upload prints the branch name on success
+        self.assertIn("default", result)
+
+
+# ---------------------------------------------------------------------------
+# screeps_fresh_start  (DESTRUCTIVE — full world wipe, must run last)
+# ---------------------------------------------------------------------------
+
+class TestFreshStartIntegration(IntegrationTestCase):
+
+    def test_fresh_start_wipes_and_reimports(self):
+        result = server.screeps_fresh_start(SERVER_NAME, self.player_dir)
+        self.assertNotIn("Error", result)
+        self.assertIn("init-map", result)
+        self.assertIn("set-tick-rate", result)
+        self.assertIn("user setup", result)
+
+    def test_server_reachable_after_fresh_start(self):
+        server.screeps_fresh_start(SERVER_NAME, self.player_dir)
+        tick = server.get_game_time(HOST, PORT)
+        self.assertGreater(tick, 0)
+
+    def test_map_imported_after_fresh_start(self):
+        server.screeps_fresh_start(SERVER_NAME, self.player_dir)
+        import urllib.request
+        url = f"http://{HOST}:{PORT}/api/picklenet/map-stats"
+        with urllib.request.urlopen(url, timeout=10) as resp:
+            data = json.loads(resp.read())
+        self.assertGreater(len(data.get("stats", {})), 0)
 
 
 if __name__ == "__main__":

@@ -112,9 +112,10 @@ reload:
 # Run all tests
 test-all: test-picklenet test-mcp
 
-# Run screepsmod-picklenet unit tests
+# Run screepsmod-picklenet unit tests then integration tests (integration skipped if server is not running)
 test-picklenet:
 	npm test --prefix screepsmod-picklenet
+	node --test screepsmod-picklenet/test/backend.integration.test.js
 
 # Run MCP server unit tests then integration tests (integration skipped if server is not running)
 # Uses venv if present, falls back to system python3
