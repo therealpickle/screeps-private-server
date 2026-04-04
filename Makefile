@@ -3,7 +3,7 @@
 -include .env
 export
 
-.PHONY: build start stop restart status rebuild update init-map soft-wipe purge-cache logs cli listusers check-user set-user-pass set-tick-rate staging-setup teardown staging-wipe headless-user deleteuser spawn-user respawn-user _verify_user test-picklenet test-mcp test-all
+.PHONY: build start stop restart status rebuild update init-map soft-wipe purge-cache logs cli listusers check-user set-user-pass set-tick-rate pause resume staging-setup teardown staging-wipe headless-user deleteuser spawn-user respawn-user _verify_user test-picklenet test-mcp test-all
 
 # Full setup from a fresh clone: creates .env if missing, builds image, starts server, initializes database and map
 build: _verify_user
@@ -125,6 +125,13 @@ test-mcp:
 	else \
 		python3 -m pytest mcp/test_server.py mcp/test_server_integration.py -v; \
 	fi
+
+# Pause and resume the game simulation
+pause:
+	echo 'system.pauseSimulation()' | docker compose exec -T screeps cli
+
+resume:
+	echo 'system.resumeSimulation()' | docker compose exec -T screeps cli
 
 # Set tick duration temporarily (not persistent): make set-tick-rate MS=500
 set-tick-rate:

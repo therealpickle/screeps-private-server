@@ -156,6 +156,27 @@ class TestSetTickIntegration(IntegrationTestCase):
 
 
 # ---------------------------------------------------------------------------
+# screeps_simulation_pause / screeps_simulation_resume
+# ---------------------------------------------------------------------------
+
+class TestSimulationPauseResumeIntegration(IntegrationTestCase):
+
+    def tearDown(self):
+        # Always resume so later tests aren't affected
+        server.screeps_simulation_resume(SERVER_NAME, self.player_dir)
+        super().tearDown()
+
+    def test_pause_returns_no_error(self):
+        result = server.screeps_simulation_pause(SERVER_NAME, self.player_dir)
+        self.assertNotIn("Error", result)
+
+    def test_resume_returns_no_error(self):
+        server.screeps_simulation_pause(SERVER_NAME, self.player_dir)
+        result = server.screeps_simulation_resume(SERVER_NAME, self.player_dir)
+        self.assertNotIn("Error", result)
+
+
+# ---------------------------------------------------------------------------
 # screeps_console
 # ---------------------------------------------------------------------------
 

@@ -269,6 +269,24 @@ def screeps_set_tick(server: str, ms: int, player_dir: str) -> str:
 
 
 @mcp.tool()
+def screeps_simulation_pause(server: str, player_dir: str) -> str:
+    """Pause the game simulation (local only)."""
+    if err := local_only(server, player_dir):
+        return err
+    cfg = get_server_config(server, player_dir)
+    return run_make("pause", get_server_repo(cfg))
+
+
+@mcp.tool()
+def screeps_simulation_resume(server: str, player_dir: str) -> str:
+    """Resume the game simulation (local only)."""
+    if err := local_only(server, player_dir):
+        return err
+    cfg = get_server_config(server, player_dir)
+    return run_make("resume", get_server_repo(cfg))
+
+
+@mcp.tool()
 def screeps_deploy(server: str, player_dir: str) -> str:
     """
     Deploy bot code to a server using screeps-api.

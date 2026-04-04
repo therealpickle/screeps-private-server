@@ -180,6 +180,35 @@ class TestSetTick(ToolTestCase):
 
 
 # ---------------------------------------------------------------------------
+# screeps_simulation_pause / screeps_simulation_resume
+# ---------------------------------------------------------------------------
+
+class TestSimulationPauseResume(ToolTestCase):
+
+    @patch("server.run_make", return_value="ok")
+    @patch("server.parse_screeps_yml", return_value=_parse(LOCAL_CFG))
+    def test_pause_calls_make(self, _parse, mock_run):
+        server.screeps_simulation_pause(SERVER_NAME, PLAYER_DIR)
+        mock_run.assert_called_once_with("pause", Path(SERVER_REPO))
+
+    @patch("server.run_make", return_value="ok")
+    @patch("server.parse_screeps_yml", return_value=_parse(LOCAL_CFG))
+    def test_resume_calls_make(self, _parse, mock_run):
+        server.screeps_simulation_resume(SERVER_NAME, PLAYER_DIR)
+        mock_run.assert_called_once_with("resume", Path(SERVER_REPO))
+
+    @patch("server.parse_screeps_yml", return_value=_parse(REMOTE_CFG))
+    def test_pause_remote_rejected(self, _):
+        result = server.screeps_simulation_pause(SERVER_NAME, PLAYER_DIR)
+        self.assertLocalOnlyError(result)
+
+    @patch("server.parse_screeps_yml", return_value=_parse(REMOTE_CFG))
+    def test_resume_remote_rejected(self, _):
+        result = server.screeps_simulation_resume(SERVER_NAME, PLAYER_DIR)
+        self.assertLocalOnlyError(result)
+
+
+# ---------------------------------------------------------------------------
 # screeps_deploy
 # ---------------------------------------------------------------------------
 
