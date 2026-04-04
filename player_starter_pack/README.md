@@ -31,7 +31,7 @@ Specifically, the features are:
    > you're already using `screeps-api` for code deployment, that's a natural fit. The picklenet
    > SSE endpoint is a simpler alternative for quick scripts that don't need the full library.
 
-4. Claude Code integration — game API docs and a `/game-state` skill pre-configured for querying
+4. Claude Code integration — game API docs and a `/picklenet` skill pre-configured for querying
    live server state
 
 ### Prerequisites

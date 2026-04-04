@@ -69,7 +69,7 @@ if [ -n "$LOCAL_PATH" ]; then
 
     copy_local "Makefile.kit"                                 "Makefile.kit"                                1
     copy_local "CLAUDE.kit.md"                               "CLAUDE.kit.md"                               1
-    copy_local ".claude/skills/game-state/SKILL.md"         ".claude/skills/game-state/SKILL.md"          1
+    copy_local ".claude/skills/picklenet/SKILL.md"         ".claude/skills/picklenet/SKILL.md"          1
     copy_local ".mcp.json"                                   ".mcp.json"                                   1
     copy_local ".claude/mcp-launcher.sh"                     ".claude/mcp-launcher.sh"                     1
     copy_local "install-player-kit.sh"                       "install-player-kit.sh"                       1
@@ -145,7 +145,7 @@ echo "============================"
 # Tooling — always update so the server admin can push improvements
 download "Makefile.kit"                                 "Makefile.kit"                                1
 download "CLAUDE.kit.md"                               "CLAUDE.kit.md"                               1
-download ".claude/skills/game-state/SKILL.md"          ".claude/skills/game-state/SKILL.md"          1
+download ".claude/skills/picklenet/SKILL.md"          ".claude/skills/picklenet/SKILL.md"          1
 download ".mcp.json"                                   ".mcp.json"                                   1
 download ".claude/mcp-launcher.sh"                     ".claude/mcp-launcher.sh"                     1
 download "install-player-kit.sh"                       "install-player-kit.sh"                       1

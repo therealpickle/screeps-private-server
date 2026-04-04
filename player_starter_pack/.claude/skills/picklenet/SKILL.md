@@ -1,5 +1,5 @@
 ---
-name: game-state
+name: picklenet
 description: Read live Screeps game state, run console commands, manage the server, or run a test loop (edit code → deploy → wait → read console/room output → iterate) — use for creeps, structures, rooms, resources, energy, spawns, console execution, deploy, respawn, tick rate, recording
 allowed-tools: Bash
 ---
