@@ -61,11 +61,12 @@ def get_server_repo(cfg: dict) -> Path:
     return Path(repo)
 
 
-def local_only(server: str, player_dir: str | Path = "") -> str | None:
+def local_only(server: str, player_dir: str | Path) -> str | None:
     """Return error string if server is not server_type: local in .screeps.yml."""
-    if not player_dir:
-        return "Error: player_dir is required to verify server type."
-    cfg = get_server_config(server, player_dir)
+    try:
+        cfg = get_server_config(server, player_dir)
+    except ValueError as e:
+        return f"Error: {e}"
     if cfg.get("server_type", "remote") != "local":
         return (
             f"Error: server '{server}' is not a local server "
@@ -113,6 +114,30 @@ def get_game_time(host: str, port: int) -> int:
     with urllib.request.urlopen(url, timeout=10) as resp:
         data = json.loads(resp.read())
     return data.get("time", -1)
+
+
+def discover_owned_rooms(cfg: dict) -> list[str]:
+    """Query map-stats and return room IDs owned by the configured user. Returns [] on any error."""
+    try:
+        host = cfg["host"]
+        port = int(cfg.get("port", 21025))
+        username = cfg.get("username", "")
+        url = f"http://{host}:{port}/api/picklenet/map-stats"
+        with urllib.request.urlopen(url, timeout=10) as resp:
+            data = json.loads(resp.read())
+        user_id = next(
+            (uid for uid, u in data.get("users", {}).items()
+             if u.get("username", "").lower() == username.lower()),
+            None,
+        )
+        if not user_id:
+            return []
+        return [
+            room_id for room_id, stats in data.get("stats", {}).items()
+            if stats.get("owner0", {}).get("user") == user_id
+        ]
+    except Exception:
+        return []
 
 
 # ---------------------------------------------------------------------------
@@ -186,7 +211,7 @@ def screeps_server_stop(server: str, player_dir: str) -> str:
 
 
 @mcp.tool()
-def screeps_server_status(server: str, player_dir: str = "") -> str:
+def screeps_server_status(server: str, player_dir: str) -> str:
     """
     Get server status. For local servers, returns container info from docker compose.
     For all servers, fetches the current game tick via HTTP.
@@ -211,12 +236,9 @@ def screeps_server_status(server: str, player_dir: str = "") -> str:
             pass
 
     try:
-        if player_dir:
-            cfg = get_server_config(server, player_dir)
-            host = cfg["host"]
-            port = int(cfg.get("port", 21025))
-        else:
-            return "\n".join(lines) + "\nError: player_dir required to get server info"
+        cfg = get_server_config(server, player_dir)
+        host = cfg["host"]
+        port = int(cfg.get("port", 21025))
         tick = get_game_time(host, port)
         lines.append(f"\n=== Game ===\nTick: {tick}")
     except Exception as e:
@@ -392,7 +414,7 @@ def screeps_console(server: str, player_dir: str, expr: str) -> str:
         port = int(cfg.get("port", 21025))
         username = cfg["username"]
         password = cfg["password"]
-        token = auth(host, port, username, password)
+        token = auth(host, port, username, cfg.get("password", ""))
 
         url = f"http://{host}:{port}/api/user/console"
         payload = json.dumps({"expression": expr}).encode()
@@ -453,14 +475,21 @@ def screeps_room_objects(server: str, player_dir: str, room: str) -> str:
 
 
 @mcp.tool()
-def screeps_recording_start(server: str, player_dir: str) -> str:
+def screeps_recording_start(server: str, player_dir: str, rooms: list[str] | None = None) -> str:
     """
     Start recording game state from a server's SSE stream to player_dir/recording-<server>/.
     Spawns a detached background process that persists after this session ends.
+    rooms: list of room IDs to subscribe to (e.g. ["W1N1", "W2N2"]).
+           When omitted, owned rooms are auto-discovered from the map-stats API.
+           Pass [] explicitly to record console output only (no room frames).
     """
     try:
-        _record_start(server, player_dir)
-        return f"Recording started for '{server}'. Data: {player_dir}/recording-{server}/ (frames.jsonl + console.jsonl)"
+        if rooms is None:
+            cfg = get_server_config(server, player_dir)
+            rooms = discover_owned_rooms(cfg)
+        _record_start(server, player_dir, rooms)
+        rooms_str = ", ".join(rooms) if rooms else "(none — console only)"
+        return f"Recording started for '{server}'. Rooms: {rooms_str}. Data: {player_dir}/recording-{server}/"
     except Exception as e:
         return f"Error: {e}"
 
@@ -497,7 +526,7 @@ def _data_dir(server: str, player_dir: str | Path) -> Path:
     return Path(player_dir) / f"recording-{server}"
 
 
-def _record_start(server: str, player_dir: str | Path) -> None:
+def _record_start(server: str, player_dir: str | Path, rooms: list[str]) -> None:
     """Spawn a detached recording worker and write its PID."""
     pid_file = _pid_file(server, player_dir)
     if pid_file.exists():
@@ -510,7 +539,7 @@ def _record_start(server: str, player_dir: str | Path) -> None:
 
     with open(log_path, "a") as log:
         proc = subprocess.Popen(
-            [sys.executable, str(Path(__file__).resolve()), "--record-worker", server],
+            [sys.executable, str(Path(__file__).resolve()), "--record-worker", server] + rooms,
             cwd=str(player_dir),
             stdout=log,
             stderr=log,
@@ -571,10 +600,10 @@ def _record_stream_loop(label: str, url_fn, out_file: Path,
             time.sleep(5)
 
 
-def _record_worker(server: str) -> None:
+def _record_worker(server: str, rooms: list[str]) -> None:
     """
-    Recording worker: subscribes to picklenet room-stream and console-stream SSE,
-    writing frames to recording-<server>/frames.jsonl and console.jsonl respectively.
+    Recording worker: subscribes to picklenet console-stream and optionally room-stream SSE.
+    Writes to recording-<server>/console.jsonl (always) and frames.jsonl (when rooms given).
     Runs until killed. CWD must be the player's bot repo (contains .screeps.yml).
     """
     import threading
@@ -587,30 +616,39 @@ def _record_worker(server: str) -> None:
     host = cfg["host"]
     port = int(cfg.get("port", 21025))
     username = cfg["username"]
-    password = cfg["password"]
+    password = cfg.get("password", "")
 
-    print(f"[record-worker] Started for '{server}' -> {data_dir}/", flush=True)
+    rooms_label = ", ".join(rooms) if rooms else "none"
+    print(f"[record-worker] Started for '{server}' -> {data_dir}/ rooms=[{rooms_label}]", flush=True)
 
-    # Console-stream runs in a daemon thread
-    console_thread = threading.Thread(
-        target=_record_stream_loop,
-        args=(
+    if rooms:
+        rooms_param = ",".join(rooms)
+        # Room-stream runs in the main thread; console-stream in a daemon thread
+        console_thread = threading.Thread(
+            target=_record_stream_loop,
+            args=(
+                "console",
+                lambda h, p, t: f"http://{h}:{p}/api/picklenet/console-stream",
+                data_dir / "console.jsonl",
+                host, port, username, password,
+            ),
+            daemon=True,
+        )
+        console_thread.start()
+        _record_stream_loop(
+            "rooms",
+            lambda h, p, t: f"http://{h}:{p}/api/picklenet/room-stream?rooms={rooms_param}",
+            data_dir / "frames.jsonl",
+            host, port, username, password,
+        )
+    else:
+        # Console only — run in main thread so the process stays alive
+        _record_stream_loop(
             "console",
             lambda h, p, t: f"http://{h}:{p}/api/picklenet/console-stream",
             data_dir / "console.jsonl",
             host, port, username, password,
-        ),
-        daemon=True,
-    )
-    console_thread.start()
-
-    # Room-stream runs in the main thread
-    _record_stream_loop(
-        "rooms",
-        lambda h, p, t: f"http://{h}:{p}/api/picklenet/room-stream",
-        data_dir / "frames.jsonl",
-        host, port, username, password,
-    )
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -628,8 +666,16 @@ def _record_cli(args: list[str]) -> None:
 
     try:
         if action == "start":
-            _record_start(server, player_dir)
-            print(f"Recording started for '{server}'")
+            rooms = list(args[2:]) if len(args) > 2 else None
+            if rooms is None:
+                try:
+                    cfg = get_server_config(server, player_dir)
+                    rooms = discover_owned_rooms(cfg)
+                except Exception:
+                    rooms = []
+            _record_start(server, player_dir, rooms)
+            rooms_str = ", ".join(rooms) if rooms else "(none — console only)"
+            print(f"Recording started for '{server}'. Rooms: {rooms_str}")
         elif action == "stop":
             _record_stop(server, player_dir)
             print(f"Recording stopped for '{server}'")
@@ -651,9 +697,9 @@ if __name__ == "__main__":
         _record_cli(args[1:])
     elif args and args[0] == "--record-worker":
         if len(args) < 2:
-            print("Usage: server.py --record-worker <server>", file=sys.stderr)
+            print("Usage: server.py --record-worker <server> [room1 room2 ...]", file=sys.stderr)
             sys.exit(1)
-        _record_worker(args[1])
+        _record_worker(args[1], args[2:])
     else:
         mcp.run()
 

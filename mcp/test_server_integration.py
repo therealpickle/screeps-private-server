@@ -212,6 +212,7 @@ class TestRecordingIntegration(IntegrationTestCase):
 
         result = server.screeps_recording_start(SERVER_NAME, self.player_dir)
         self.assertIn("Recording started", result)
+        self.assertIn("Rooms:", result)
         self.assertTrue(pid_file.exists())
 
         # Wait for the worker to connect, then send a console expression so the

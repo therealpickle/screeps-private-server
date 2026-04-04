@@ -115,10 +115,6 @@ class TestServerStatus(ToolTestCase):
         self.assertIn("42", result)
         self.assertNotIn("Containers", result)
 
-    def test_no_player_dir_returns_error(self):
-        result = server.screeps_server_status(SERVER_NAME, "")
-        self.assertIn("Error", result)
-
 
 # ---------------------------------------------------------------------------
 # screeps_fresh_start
@@ -456,18 +452,35 @@ class TestRecording(unittest.TestCase):
     @patch("server.subprocess.Popen")
     def test_start_creates_pid_file(self, mock_popen):
         mock_popen.return_value = MagicMock(pid=12345)
-        result = server.screeps_recording_start(SERVER_NAME, self.player_dir)
+        result = server.screeps_recording_start(SERVER_NAME, self.player_dir, rooms=[])
         pid_file = Path(self.player_dir) / f".recording-{SERVER_NAME}.pid"
         self.assertTrue(pid_file.exists())
         self.assertEqual(pid_file.read_text(), "12345")
         self.assertIn("Recording started", result)
 
     @patch("server.subprocess.Popen")
+    def test_start_with_rooms_passes_rooms_to_worker(self, mock_popen):
+        mock_popen.return_value = MagicMock(pid=12345)
+        server.screeps_recording_start(SERVER_NAME, self.player_dir, rooms=["W1N1", "W2N2"])
+        cmd = mock_popen.call_args[0][0]
+        self.assertIn("W1N1", cmd)
+        self.assertIn("W2N2", cmd)
+
+    @patch("server.discover_owned_rooms", return_value=["W3N3"])
+    @patch("server.get_server_config", return_value={"host": "localhost", "port": 21025, "username": "u", "server_repo": SERVER_REPO})
+    @patch("server.subprocess.Popen")
+    def test_start_auto_discovers_rooms_when_omitted(self, mock_popen, _cfg, _discover):
+        mock_popen.return_value = MagicMock(pid=99)
+        result = server.screeps_recording_start(SERVER_NAME, self.player_dir)
+        self.assertIn("W3N3", result)
+        cmd = mock_popen.call_args[0][0]
+        self.assertIn("W3N3", cmd)
+
+    @patch("server.subprocess.Popen")
     def test_start_already_active_returns_error(self, mock_popen):
         mock_popen.return_value = MagicMock(pid=99)
-        server.screeps_recording_start(SERVER_NAME, self.player_dir)
-        # Second start should fail
-        result = server.screeps_recording_start(SERVER_NAME, self.player_dir)
+        server.screeps_recording_start(SERVER_NAME, self.player_dir, rooms=[])
+        result = server.screeps_recording_start(SERVER_NAME, self.player_dir, rooms=[])
         self.assertIn("Error", result)
         self.assertIn("Already recording", result)
 
@@ -477,7 +490,7 @@ class TestRecording(unittest.TestCase):
     @patch("server.subprocess.Popen")
     def test_stop_kills_process_and_removes_pid(self, mock_popen, mock_kill):
         mock_popen.return_value = MagicMock(pid=12345)
-        server.screeps_recording_start(SERVER_NAME, self.player_dir)
+        server.screeps_recording_start(SERVER_NAME, self.player_dir, rooms=[])
         result = server.screeps_recording_stop(SERVER_NAME, self.player_dir)
         mock_kill.assert_called_once_with(12345, signal.SIGTERM)
         pid_file = Path(self.player_dir) / f".recording-{SERVER_NAME}.pid"
@@ -502,7 +515,7 @@ class TestRecording(unittest.TestCase):
     @patch("server.subprocess.Popen")
     def test_wipe_while_active_returns_error(self, mock_popen):
         mock_popen.return_value = MagicMock(pid=555)
-        server.screeps_recording_start(SERVER_NAME, self.player_dir)
+        server.screeps_recording_start(SERVER_NAME, self.player_dir, rooms=[])
         result = server.screeps_recording_wipe(SERVER_NAME, self.player_dir)
         self.assertIn("Error", result)
         self.assertIn("active", result)
