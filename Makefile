@@ -3,7 +3,7 @@
 -include .env
 export
 
-.PHONY: build start stop restart status rebuild update init-map soft-wipe purge-cache logs cli listusers check-user set-user-pass set-tick-rate staging-setup teardown staging-wipe headless-user deleteuser spawn-user respawn-user _verify_user test-picklenet
+.PHONY: build start stop restart status rebuild update init-map soft-wipe purge-cache logs cli listusers check-user set-user-pass set-tick-rate staging-setup teardown staging-wipe headless-user deleteuser spawn-user respawn-user _verify_user test-picklenet test-mcp
 
 # Full setup from a fresh clone: creates .env if missing, builds image, starts server, initializes database and map
 build: _verify_user
@@ -112,6 +112,14 @@ reload:
 # Run screepsmod-picklenet unit tests
 test-picklenet:
 	npm test --prefix screepsmod-picklenet
+
+# Run MCP server unit tests (uses venv if present, falls back to system python3)
+test-mcp:
+	@if [ -x mcp/.venv/bin/python3 ]; then \
+		mcp/.venv/bin/python3 -m pytest mcp/test_server.py -v; \
+	else \
+		python3 -m pytest mcp/test_server.py -v; \
+	fi
 
 # Set tick duration temporarily (not persistent): make set-tick-rate MS=500
 set-tick-rate:
