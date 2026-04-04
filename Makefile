@@ -3,7 +3,7 @@
 -include .env
 export
 
-.PHONY: build start stop restart status rebuild update init-map purge-cache logs cli listusers set-user-pass set-tick-rate staging-setup teardown staging-wipe staging-user deleteuser spawn-user _verify_user test-picklenet
+.PHONY: build start stop restart status rebuild update init-map soft-wipe purge-cache logs cli listusers check-user set-user-pass set-tick-rate pause resume staging-setup teardown staging-wipe headless-user deleteuser spawn-user respawn-user _verify_user test-picklenet test-mcp test-all
 
 # Full setup from a fresh clone: creates .env if missing, builds image, starts server, initializes database and map
 build: _verify_user
@@ -64,6 +64,19 @@ init-map:
 	docker compose restart screeps
 	@until echo 'true' | docker compose exec -T screeps cli > /dev/null 2>&1; do sleep 2; done
 
+# Wipe game world but keep user accounts: make soft-wipe
+# Clears room collections, re-imports map, restarts. Users and code are preserved.
+soft-wipe:
+	@echo "Clearing game-world collections..."
+	@echo "Promise.all(['rooms','rooms.objects','rooms.terrain','rooms.flags','rooms.intents'].map(function(c){return storage.db[c].remove({})}))" \
+	  | docker compose exec -T screeps cli
+	@echo 'utils.importMap("$(INIT_MAP_KEY)")' | docker compose exec -T screeps cli
+	@sleep 3
+	@echo 'system.resumeSimulation()' | docker compose exec -T screeps cli
+	@echo "Restarting screeps to reload map data..."
+	docker compose restart screeps
+	@until echo 'true' | docker compose exec -T screeps cli > /dev/null 2>&1; do sleep 2; done
+
 # Pull latest base images, rebuild custom image, and restart; also purges CDN cache if configured
 rebuild:
 	docker compose down
@@ -96,14 +109,42 @@ cli:
 reload:
 	echo 'utils.reloadConfig()' | docker compose exec -T screeps cli
 
-# Run screepsmod-picklenet unit tests
+# Run all tests
+test-all: test-picklenet test-mcp
+
+# Run screepsmod-picklenet unit tests then integration tests (integration skipped if server is not running)
 test-picklenet:
 	npm test --prefix screepsmod-picklenet
+	node --test screepsmod-picklenet/test/backend.integration.test.js
+
+# Run MCP server unit tests then integration tests (integration skipped if server is not running)
+# Uses venv if present, falls back to system python3
+test-mcp:
+	@if [ -x mcp/.venv/bin/python3 ]; then \
+		mcp/.venv/bin/python3 -m pytest mcp/test_server.py mcp/test_server_integration.py -v; \
+	else \
+		python3 -m pytest mcp/test_server.py mcp/test_server_integration.py -v; \
+	fi
+
+# Pause and resume the game simulation
+pause:
+	echo 'system.pauseSimulation()' | docker compose exec -T screeps cli
+
+resume:
+	echo 'system.resumeSimulation()' | docker compose exec -T screeps cli
 
 # Set tick duration temporarily (not persistent): make set-tick-rate MS=500
 set-tick-rate:
 	@test -n "$(MS)" || (echo "Usage: make set-tick-rate MS=<milliseconds>"; exit 1)
 	echo 'system.setTickDuration($(MS))' | docker compose exec -T screeps cli
+
+# Check if a user exists: make check-user USER=username
+# Prints "USER_EXISTS" or "USER_NOT_FOUND" for scripting/polling use.
+check-user:
+	@test -n "$(USER)" || (echo "Usage: make check-user USER=username"; exit 1)
+	@USER_LOWER="$$(echo '$(USER)' | tr '[:upper:]' '[:lower:]')"; \
+	printf 'storage.db.users.findOne({usernameLower:"%s"}).then(function(u){ print(u ? "USER_EXISTS" : "USER_NOT_FOUND") })\n' "$$USER_LOWER" \
+	  | docker compose exec -T screeps cli
 
 # List all users in the database
 listusers:
@@ -116,10 +157,11 @@ set-user-pass:
 	@test -n "$(PASS)" || (echo "Usage: make set-user-pass USER=username PASS=password"; exit 1)
 	echo 'setPassword("$(USER)", "$(PASS)")' | docker compose exec -T screeps cli
 
-# Create a user and set password (for staging/testing without Steam): make staging-user USER=username PASS=password
-staging-user:
-	@test -n "$(USER)" || (echo "Usage: make staging-user USER=username PASS=password"; exit 1)
-	@test -n "$(PASS)" || (echo "Usage: make staging-user USER=username PASS=password"; exit 1)
+# Create a non-Steam user with a password: make headless-user USER=username PASS=password
+# Note: users created this way cannot log in via the Steam client — password auth only.
+headless-user:
+	@test -n "$(USER)" || (echo "Usage: make headless-user USER=username PASS=password"; exit 1)
+	@test -n "$(PASS)" || (echo "Usage: make headless-user USER=username PASS=password"; exit 1)
 	@USER_LOWER="$$(echo '$(USER)' | tr '[:upper:]' '[:lower:]')"; \
 	printf 'try { storage.db.users.insert({username:"%s",usernameLower:"%s",cpu:100,gcl:0,active:true,cpuAvailable:10000,registeredDate:new Date().toISOString(),blocked:false,authTouched:true}) } catch(e) {}\n' "$(USER)" "$$USER_LOWER" \
 	  | docker compose exec -T screeps cli
@@ -133,9 +175,17 @@ deleteuser:
 	@printf 'storage.db.users.findOne({username:"%s"}).then(function(u){ if(!u){print("User not found");return;} return storage.db["users.code"].remove({user:u._id}).then(function(){ return storage.db.users.remove({_id:u._id}); }).then(function(){ print("Deleted user: %s"); }); })\n' "$(USER)" "$(USER)" \
 	  | docker compose exec -T screeps cli
 
-# Manually spawn a user: make spawn-user USER=username
+# Manually spawn a user (idempotent — skips if spawn exists): make spawn-user USER=username
 spawn-user:
 	@test -n "$(USER)" || (echo "Usage: make spawn-user USER=username"; exit 1)
+	@printf 'var USERNAME="%s";\n' "$(USER)" | cat - scripts/spawn-user.js \
+	  | docker compose exec -T screeps cli
+
+# Respawn a user in a new random room (clears existing spawn/structures first): make respawn-user USER=username
+respawn-user:
+	@test -n "$(USER)" || (echo "Usage: make respawn-user USER=username"; exit 1)
+	@printf 'storage.db.users.findOne({username:"%s"}).then(function(u){if(!u){print("User not found");return;}var id=u._id;return storage.db["rooms.objects"].findOne({type:"controller",user:id}).then(function(c){if(!c)return;return storage.db["rooms.objects"].update({_id:c._id},{$$set:{user:null,level:0,progress:0,downgradeTime:0,safeMode:0,safeModeAvailable:0}});}).then(function(){return storage.db["rooms.objects"].remove({user:id});}).then(function(){return storage.db.users.update({_id:id},{$$set:{rooms:[]}});}).then(function(){print("Cleared "+"%s");});});\n' "$(USER)" "$(USER)" \
+	  | docker compose exec -T screeps cli
 	@printf 'var USERNAME="%s";\n' "$(USER)" | cat - scripts/spawn-user.js \
 	  | docker compose exec -T screeps cli
 

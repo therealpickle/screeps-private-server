@@ -80,6 +80,46 @@ data: {"ts":1234567890456,"text":"something went wrong","type":"error"}
 
 ---
 
+### GET /api/picklenet/map-stats
+
+Returns map-stats for all rooms in the world. Same response shape as `/api/game/map-stats`
+but covers every room without needing to know room names in advance. No auth required.
+
+```
+GET /api/picklenet/map-stats
+```
+
+**Response:**
+```json
+{
+  "ok": 1,
+  "gameTime": 12345,
+  "stats": {
+    "E1S1": {
+      "status": "normal",
+      "novice": null,
+      "respawnArea": null,
+      "openTime": null,
+      "minerals0": { "type": "U", "density": 2 },
+      "owner0": { "user": "<userId>", "level": 4 }
+    }
+  },
+  "statsMax": {},
+  "users": {
+    "<userId>": { "_id": "<userId>", "username": "Alice", "badge": { ... } }
+  }
+}
+```
+
+- `minerals0` — present only for rooms that have a mineral deposit
+- `owner0` — present only for rooms with a claimed controller (level > 0)
+- `users` — owner info keyed by user ID, populated when any room has `owner0`
+
+**Errors:**
+- `500` — database query failed
+
+---
+
 ### GET /api/picklenet/room-stream
 
 SSE stream of room state — one frame pushed per tick.

@@ -1,0 +1,5 @@
+# Created with Claude Code (claude.ai/code)
+mcp
+pyyaml
+pytest
+# Created with Claude Code (claude.ai/code)

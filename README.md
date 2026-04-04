@@ -87,7 +87,7 @@ This server runs two custom mods beyond the standard screepsmod stack:
 | `make cli` | Open the server CLI |
 | `make reload` | Reload config.yml without restarting |
 | `make set-user-pass USER=x PASS=y` | Set a user's password |
-| `make staging-user USER=x PASS=y` | Create a user without Steam (staging/testing) |
+| `make headless-user USER=x PASS=y` | Create a user without Steam — password auth only, Steam client cannot log in as this user |
 | `make deleteuser USER=x` | Delete a user |
 
 ## Usage

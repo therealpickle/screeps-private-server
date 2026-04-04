@@ -22,5 +22,5 @@ This is a Screeps bot repository targeting a private server.
 
 - This is a **private server** — the in-game tutorial, seasonal content, and official shard data do not apply
 - Server address and credentials are in `.screeps.yml` (gitignored)
-- To read live game state, use the `/game-state` skill
+- To read live game state, use the `/picklenet` skill
 - `Game.picklenet` is available in the sandbox but has no methods yet
