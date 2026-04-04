@@ -10,19 +10,39 @@ allowed-tools: Bash
 
 The `screeps` MCP exposes structured tools for common operations. Use these instead of curl where possible.
 
+### Game state
 | Task | Tool | Notes |
 |---|---|---|
-| Server status + game tick | `screeps_server_status(server, player_dir?)` | |
+| Server status + game tick | `screeps_server_status(server, player_dir)` | |
+| Map stats for all rooms | `screeps_map_stats(server, player_dir)` | room status, minerals, owners |
+| All objects in a room | `screeps_room_objects(server, player_dir, room)` | creeps, structures, sources |
 | Run JS in game sandbox | `screeps_console(server, player_dir, expr)` | output is async — check console output |
-| Deploy bot code | `screeps_deploy(server, player_dir)` | |
-| Start recording | `screeps_recording_start(server, player_dir)` | captures room state + console output |
+
+### Bot workflow
+| Task | Tool | Notes |
+|---|---|---|
+| Deploy bot code | `screeps_deploy(server, player_dir)` | runs make deploy-<server> |
+| Start recording | `screeps_recording_start(server, player_dir)` | captures console + room output |
 | Stop recording | `screeps_recording_stop(server, player_dir)` | |
 | Wipe recording | `screeps_recording_wipe(server, player_dir)` | |
-| Spawn user into world | `screeps_respawn(server, user)` | local only |
-| Start server | `screeps_server_start(server)` | local only |
-| Stop server | `screeps_server_stop(server)` | local only |
-| Wipe + init fresh map | `screeps_fresh_start(server, map_key, tick_rate)` | local only |
-| Set tick duration | `screeps_set_tick(server, ms)` | local only |
+
+### Server management (local only)
+| Task | Tool | Notes |
+|---|---|---|
+| Start server | `screeps_server_start(server, player_dir)` | |
+| Stop server | `screeps_server_stop(server, player_dir)` | |
+| Wipe + init fresh map | `screeps_fresh_start(server, player_dir, map_key?, tick_rate?)` | full DB reset |
+| Pause simulation | `screeps_simulation_pause(server, player_dir)` | |
+| Resume simulation | `screeps_simulation_resume(server, player_dir)` | |
+| Set tick duration | `screeps_set_tick(server, ms, player_dir)` | not persistent across restarts |
+| Spawn/respawn user | `screeps_respawn(server, player_dir, user?)` | reads user from .screeps.yml if omitted |
+
+### User management (local only)
+| Task | Tool | Notes |
+|---|---|---|
+| Create headless user | `screeps_create_headless_user(server, player_dir, user?, password?)` | idempotent |
+| Set user password | `screeps_set_user_password(server, player_dir, user?, password?)` | |
+| Wait for Steam user login | `screeps_await_steam_user(server, player_dir, user?)` | polls up to 5 min |
 
 `server` = name from `.screeps.yml` (e.g. `private`, `staging`). Use `local` for the local Docker server.
 `player_dir` = absolute path to this repo (where `.screeps.yml` lives).
@@ -146,6 +166,12 @@ TOKEN=$(curl -s -X POST "http://<HOST>:<PORT>/api/auth/signin" \
 ```
 
 ## Room data
+
+**Map stats for all rooms** (room status, minerals, owners, game time) — no auth needed:
+```bash
+curl -s "http://<HOST>:<PORT>/api/picklenet/map-stats" | python3 -m json.tool
+```
+Returns `{ok, gameTime, stats: {roomId: {status, minerals0?, owner0?}}, users: {userId: {username, badge}}}`.
 
 **All objects in a room** (creeps, structures, sources, minerals) — no auth needed:
 ```bash
