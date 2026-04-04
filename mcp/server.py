@@ -162,7 +162,6 @@ def _ensure_user_spawned(
 # ---------------------------------------------------------------------------
 
 # TODO: add tools for API calls currently done via curl in the game-state skill:
-#   - screeps_room_objects(server, player_dir, room) — GET /api/game/room-objects
 #   - screeps_room_terrain(server, player_dir, room) — GET /api/game/room-terrain
 #   - screeps_memory_read(server, player_dir, path?) — GET /api/user/memory
 #   - screeps_memory_write(server, player_dir, path, value) — POST /api/user/memory
@@ -391,6 +390,25 @@ def screeps_console(server: str, player_dir: str, expr: str) -> str:
         with urllib.request.urlopen(req, timeout=10) as resp:
             data = json.loads(resp.read())
         return f"Sent. Server response: {json.dumps(data)}\n(Output is asynchronous — check console stream)"
+    except Exception as e:
+        return f"Error: {e}"
+
+
+@mcp.tool()
+def screeps_room_objects(server: str, player_dir: str, room: str) -> str:
+    """
+    Get all game objects in a room (creeps, structures, sources, minerals, etc.).
+    No authentication required. Returns JSON with an 'objects' array.
+    Each object has: type, x, y, user (owner id), body (creeps), store (resources).
+    """
+    try:
+        cfg = get_server_config(server, player_dir)
+        host = cfg["host"]
+        port = int(cfg.get("port", 21025))
+        url = f"http://{host}:{port}/api/game/room-objects?room={room}&shard=shard0"
+        with urllib.request.urlopen(url, timeout=10) as resp:
+            data = json.loads(resp.read())
+        return json.dumps(data, indent=2)
     except Exception as e:
         return f"Error: {e}"
 

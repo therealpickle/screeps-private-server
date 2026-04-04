@@ -113,12 +113,13 @@ reload:
 test-picklenet:
 	npm test --prefix screepsmod-picklenet
 
-# Run MCP server unit tests (uses venv if present, falls back to system python3)
+# Run MCP server unit tests then integration tests (integration skipped if server is not running)
+# Uses venv if present, falls back to system python3
 test-mcp:
 	@if [ -x mcp/.venv/bin/python3 ]; then \
-		mcp/.venv/bin/python3 -m pytest mcp/test_server.py -v; \
+		mcp/.venv/bin/python3 -m pytest mcp/test_server.py mcp/test_server_integration.py -v; \
 	else \
-		python3 -m pytest mcp/test_server.py -v; \
+		python3 -m pytest mcp/test_server.py mcp/test_server_integration.py -v; \
 	fi
 
 # Set tick duration temporarily (not persistent): make set-tick-rate MS=500

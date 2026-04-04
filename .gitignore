@@ -8,6 +8,7 @@ nginx/certs/
 docker-compose.override.yml
 __pycache__/
 *.pyc
+mcp/.venv/
 
 # Created with Claude Code (claude.ai/code)
 
