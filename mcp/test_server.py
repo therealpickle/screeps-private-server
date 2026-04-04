@@ -525,6 +525,53 @@ class TestRecording(unittest.TestCase):
         self.assertIn("Error", result)
         self.assertIn("No recording data", result)
 
+    # --- max_size / rotation ---
+
+    @patch("server.subprocess.Popen")
+    def test_max_size_passed_to_subprocess(self, mock_popen):
+        mock_popen.return_value = MagicMock(pid=77)
+        server.screeps_recording_start(SERVER_NAME, self.player_dir, rooms=[], max_size=1024)
+        cmd = mock_popen.call_args[0][0]
+        self.assertIn("--max-size", cmd)
+        self.assertIn("1024", cmd)
+
+    def test_rotate_log_creates_numbered_segment(self):
+        data_dir = Path(self.player_dir) / "recording-test"
+        data_dir.mkdir()
+        log = data_dir / "console.jsonl"
+        log.write_text('{"a":1}\n{"b":2}\n')
+        server._rotate_log(log, 0)
+        segment = data_dir / "console.0001.jsonl"
+        self.assertTrue(segment.exists())
+        self.assertIn('"a":1', segment.read_text())
+        self.assertEqual(log.read_text(), "")  # fresh active file
+
+    def test_rotate_log_increments_counter(self):
+        data_dir = Path(self.player_dir) / "recording-test"
+        data_dir.mkdir()
+        log = data_dir / "console.jsonl"
+        # First rotation → console.0001.jsonl
+        log.write_text("line1\n")
+        server._rotate_log(log, 0)
+        # Second rotation → console.0002.jsonl
+        log.write_text("line2\n")
+        server._rotate_log(log, 0)
+        self.assertTrue((data_dir / "console.0001.jsonl").exists())
+        self.assertTrue((data_dir / "console.0002.jsonl").exists())
+
+    def test_rotate_log_prunes_oldest_when_over_limit(self):
+        data_dir = Path(self.player_dir) / "recording-test"
+        data_dir.mkdir()
+        log = data_dir / "console.jsonl"
+        # Create two existing segments (10 bytes each) and active file (10 bytes)
+        (data_dir / "console.0001.jsonl").write_text("0123456789")
+        (data_dir / "console.0002.jsonl").write_text("0123456789")
+        log.write_text("0123456789")
+        # limit = 25 bytes: after rotation total would be 30 → oldest pruned
+        server._rotate_log(log, 25)
+        self.assertFalse((data_dir / "console.0001.jsonl").exists())
+        self.assertTrue((data_dir / "console.0002.jsonl").exists())
+
 
 # ---------------------------------------------------------------------------
 # _ensure_user_spawned (internal, tested via fresh_start but also directly)

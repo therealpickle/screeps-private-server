@@ -475,19 +475,23 @@ def screeps_room_objects(server: str, player_dir: str, room: str) -> str:
 
 
 @mcp.tool()
-def screeps_recording_start(server: str, player_dir: str, rooms: list[str] | None = None) -> str:
+def screeps_recording_start(server: str, player_dir: str, rooms: list[str] | None = None,
+                            max_size: int = 0) -> str:
     """
     Start recording game state from a server's SSE stream to player_dir/recording-<server>/.
     Spawns a detached background process that persists after this session ends.
     rooms: list of room IDs to subscribe to (e.g. ["W1N1", "W2N2"]).
            When omitted, owned rooms are auto-discovered from the map-stats API.
            Pass [] explicitly to record console output only (no room frames).
+    max_size: total size limit in bytes across all log files for this server (0 = unlimited).
+           Each individual log file rotates at max_size//20 bytes; oldest segments are deleted
+           to stay within max_size total.
     """
     try:
         if rooms is None:
             cfg = get_server_config(server, player_dir)
             rooms = discover_owned_rooms(cfg)
-        _record_start(server, player_dir, rooms)
+        _record_start(server, player_dir, rooms, max_size)
         rooms_str = ", ".join(rooms) if rooms else "(none — console only)"
         return f"Recording started for '{server}'. Rooms: {rooms_str}. Data: {player_dir}/recording-{server}/"
     except Exception as e:
@@ -526,7 +530,27 @@ def _data_dir(server: str, player_dir: str | Path) -> Path:
     return Path(player_dir) / f"recording-{server}"
 
 
-def _record_start(server: str, player_dir: str | Path, rooms: list[str]) -> None:
+def _rotate_log(path: Path, max_total: int) -> None:
+    """Rotate path: rename to a numbered segment, create a fresh active file, then prune
+    the oldest segments until total size (segments + active file) is within max_total bytes."""
+    parent, stem, suffix = path.parent, path.stem, path.suffix
+    existing = sorted(parent.glob(f"{stem}.*[0-9]{suffix}"))
+    try:
+        counter = int(existing[-1].stem.rsplit(".", 1)[-1]) + 1 if existing else 1
+    except (ValueError, IndexError):
+        counter = len(existing) + 1
+    path.rename(parent / f"{stem}.{counter:04d}{suffix}")
+    path.touch()
+    if max_total > 0:
+        while True:
+            segments = sorted(parent.glob(f"{stem}.*[0-9]{suffix}"))
+            total = sum(f.stat().st_size for f in segments) + path.stat().st_size
+            if total <= max_total or not segments:
+                break
+            segments[0].unlink()
+
+
+def _record_start(server: str, player_dir: str | Path, rooms: list[str], max_size: int = 0) -> None:
     """Spawn a detached recording worker and write its PID."""
     pid_file = _pid_file(server, player_dir)
     if pid_file.exists():
@@ -538,8 +562,12 @@ def _record_start(server: str, player_dir: str | Path, rooms: list[str]) -> None
     log_path = _data_dir(server, player_dir) / "output.log"
 
     with open(log_path, "a") as log:
+        cmd = [sys.executable, str(Path(__file__).resolve()), "--record-worker", server]
+        if max_size:
+            cmd += ["--max-size", str(max_size)]
+        cmd += rooms
         proc = subprocess.Popen(
-            [sys.executable, str(Path(__file__).resolve()), "--record-worker", server] + rooms,
+            cmd,
             cwd=str(player_dir),
             stdout=log,
             stderr=log,
@@ -576,31 +604,41 @@ def _record_wipe(server: str, player_dir: str | Path) -> None:
         raise RuntimeError(f"No recording data found for '{server}'")
 
 
-def _stream_to_file(label: str, url: str, token: str, out_file: Path) -> None:
+def _stream_to_file(label: str, url: str, token: str, out_file: Path, max_size: int = 0) -> None:
     """Subscribe to an SSE endpoint and append data frames to out_file. Runs until exception."""
+    file_limit = max_size // 20 if max_size > 0 else 0
     req = urllib.request.Request(url, headers={"X-Token": token})
     with urllib.request.urlopen(req, timeout=90) as resp:
-        with open(out_file, "a") as f:
+        f = open(out_file, "a", encoding="utf-8")
+        try:
             for raw_line in resp:
                 line = raw_line.decode("utf-8", errors="replace").strip()
-                if line.startswith("data:"):
-                    f.write(line[5:].strip() + "\n")
-                    f.flush()
+                if not line.startswith("data:"):
+                    continue
+                f.write(line[5:].strip() + "\n")
+                f.flush()
+                if file_limit > 0 and out_file.stat().st_size >= file_limit:
+                    f.close()
+                    _rotate_log(out_file, max_size)
+                    f = open(out_file, "a", encoding="utf-8")
+        finally:
+            f.close()
 
 
 def _record_stream_loop(label: str, url_fn, out_file: Path,
-                        host: str, port: int, username: str, password: str) -> None:
+                        host: str, port: int, username: str, password: str,
+                        max_size: int = 0) -> None:
     """Retry loop for a single SSE stream. Reauthenticates on each reconnect."""
     while True:
         try:
             token = auth(host, port, username, password)
-            _stream_to_file(label, url_fn(host, port, token), token, out_file)
+            _stream_to_file(label, url_fn(host, port, token), token, out_file, max_size)
         except Exception as e:
             print(f"[record-worker:{label}] Error: {e}, retrying in 5s...", flush=True)
             time.sleep(5)
 
 
-def _record_worker(server: str, rooms: list[str]) -> None:
+def _record_worker(server: str, rooms: list[str], max_size: int = 0) -> None:
     """
     Recording worker: subscribes to picklenet console-stream and optionally room-stream SSE.
     Writes to recording-<server>/console.jsonl (always) and frames.jsonl (when rooms given).
@@ -630,7 +668,7 @@ def _record_worker(server: str, rooms: list[str]) -> None:
                 "console",
                 lambda h, p, t: f"http://{h}:{p}/api/picklenet/console-stream",
                 data_dir / "console.jsonl",
-                host, port, username, password,
+                host, port, username, password, max_size,
             ),
             daemon=True,
         )
@@ -639,7 +677,7 @@ def _record_worker(server: str, rooms: list[str]) -> None:
             "rooms",
             lambda h, p, t: f"http://{h}:{p}/api/picklenet/room-stream?rooms={rooms_param}",
             data_dir / "frames.jsonl",
-            host, port, username, password,
+            host, port, username, password, max_size,
         )
     else:
         # Console only — run in main thread so the process stays alive
@@ -647,7 +685,7 @@ def _record_worker(server: str, rooms: list[str]) -> None:
             "console",
             lambda h, p, t: f"http://{h}:{p}/api/picklenet/console-stream",
             data_dir / "console.jsonl",
-            host, port, username, password,
+            host, port, username, password, max_size,
         )
 
 
@@ -666,14 +704,21 @@ def _record_cli(args: list[str]) -> None:
 
     try:
         if action == "start":
-            rooms = list(args[2:]) if len(args) > 2 else None
+            remaining = args[2:]
+            max_size, rooms_raw, i = 0, [], 0
+            while i < len(remaining):
+                if remaining[i] == "--max-size" and i + 1 < len(remaining):
+                    max_size = int(remaining[i + 1]); i += 2
+                else:
+                    rooms_raw.append(remaining[i]); i += 1
+            rooms: list[str] | None = rooms_raw if rooms_raw else None
             if rooms is None:
                 try:
                     cfg = get_server_config(server, player_dir)
                     rooms = discover_owned_rooms(cfg)
                 except Exception:
                     rooms = []
-            _record_start(server, player_dir, rooms)
+            _record_start(server, player_dir, rooms, max_size)
             rooms_str = ", ".join(rooms) if rooms else "(none — console only)"
             print(f"Recording started for '{server}'. Rooms: {rooms_str}")
         elif action == "stop":
@@ -697,9 +742,17 @@ if __name__ == "__main__":
         _record_cli(args[1:])
     elif args and args[0] == "--record-worker":
         if len(args) < 2:
-            print("Usage: server.py --record-worker <server> [room1 room2 ...]", file=sys.stderr)
+            print("Usage: server.py --record-worker <server> [--max-size N] [room1 room2 ...]",
+                  file=sys.stderr)
             sys.exit(1)
-        _record_worker(args[1], args[2:])
+        remaining = args[2:]
+        max_size, rooms, i = 0, [], 0
+        while i < len(remaining):
+            if remaining[i] == "--max-size" and i + 1 < len(remaining):
+                max_size = int(remaining[i + 1]); i += 2
+            else:
+                rooms.append(remaining[i]); i += 1
+        _record_worker(args[1], rooms, max_size)
     else:
         mcp.run()
 

@@ -210,7 +210,7 @@ class TestRecordingIntegration(IntegrationTestCase):
         pid_file = Path(self.player_dir) / f".recording-{SERVER_NAME}.pid"
         data_dir = Path(self.player_dir) / f"recording-{SERVER_NAME}"
 
-        result = server.screeps_recording_start(SERVER_NAME, self.player_dir)
+        result = server.screeps_recording_start(SERVER_NAME, self.player_dir, max_size=1_000_000)
         self.assertIn("Recording started", result)
         self.assertIn("Rooms:", result)
         self.assertTrue(pid_file.exists())
